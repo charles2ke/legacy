@@ -1,0 +1,287 @@
+:root {
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --text: #1f2421;
+  --muted: #4a544e;
+  --accent: #1d5b4c;
+  --accent-strong: #123a30;
+  --border: #d8d5cc;
+  --focus: #b44b00;
+  --radius: 10px;
+  --measure: 66ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181a;
+    --surface: #1c2124;
+    --text: #f1f3f1;
+    --muted: #c3ccc6;
+    --accent: #8fd3bd;
+    --accent-strong: #b8e6d6;
+    --border: #39413f;
+    --focus: #ffb26b;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+h1,
+h2,
+h3,
+nav,
+.badge,
+.button {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+a {
+  color: var(--accent-strong);
+}
+
+@media (prefers-color-scheme: dark) {
+  a {
+    color: var(--accent);
+  }
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--surface);
+  padding: 0.75rem 1rem;
+  z-index: 10;
+}
+
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+.site-header,
+.site-footer {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.site-footer {
+  border-bottom: 0;
+  border-top: 1px solid var(--border);
+  margin-top: 3rem;
+}
+
+.wrap {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem;
+}
+
+main.wrap {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.site-header .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.site-title {
+  font-weight: 700;
+  font-size: 1.2rem;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.site-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-nav a[aria-current="page"] {
+  font-weight: 700;
+}
+
+h1 {
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  line-height: 1.2;
+  margin-top: 0;
+}
+
+h2 {
+  font-size: clamp(1.3rem, 3.5vw, 1.6rem);
+  margin-top: 2.5rem;
+}
+
+p,
+li {
+  max-width: var(--measure);
+}
+
+.lede {
+  font-size: 1.15rem;
+  color: var(--muted);
+}
+
+.button {
+  display: inline-block;
+  background: var(--accent);
+  color: #ffffff;
+  padding: 0.65rem 1.1rem;
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  .button {
+    color: #10201b;
+  }
+}
+
+.button:hover {
+  background: var(--accent-strong);
+  color: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .button:hover {
+    color: #10201b;
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.note {
+  border-left: 4px solid var(--accent);
+  background: var(--surface);
+  padding: 0.75rem 1rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+}
+
+.card {
+  max-width: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.card p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+
+.status {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.profile-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.profile-image {
+  margin: 1.5rem 0;
+}
+
+.work-list {
+  list-style: none;
+  padding: 0;
+}
+
+.work-list li {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  margin-top: 1rem;
+  max-width: var(--measure);
+}
+
+.work-list h3 {
+  margin: 0 0 0.25rem;
+}
+
+.back-link {
+  margin-top: 2.5rem;
+}
+
+.site-footer p {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 30rem) {
+  body {
+    font-size: 1rem;
+  }
+
+  .actions .button {
+    width: 100%;
+    text-align: center;
+  }
+}

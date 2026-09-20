@@ -1,0 +1,28 @@
+{
+  "slug": "example-river-okonkwo",
+  "name": "River Okonkwo (fictional example)",
+  "introduction": "A fictional demonstration profile. River is not a real person; this entry exists only to show how a Legacy profile looks.",
+  "story": "River learned to fix things in a repair shop that smelled of solder and rain. Nothing there was ever thrown away before someone had argued with it for an afternoon.\n\nLater River wrote small tools for a neighbourhood library: a catalogue that ran on an old laptop, a sign-up sheet for reading nights, a script that reminded volunteers to lock the back door. None of it was famous. All of it was used.\n\nRiver liked explaining things more than building them, and kept a notebook of the questions people were embarrassed to ask out loud.",
+  "carryForward": "Fix one small thing for someone who did not ask, and write down how you did it so the next person does not have to guess.",
+  "values": [
+    "Repair before replacement",
+    "Patient explanations",
+    "Small tools, used often"
+  ],
+  "work": [
+    {
+      "title": "Library catalogue (example)",
+      "description": "A fictional example entry showing how to describe something you made and why it mattered.",
+      "url": "https://example.com/library-catalogue"
+    },
+    {
+      "title": "Notebook of embarrassing questions (example)",
+      "description": "A fictional collection of plain-language answers to questions people were afraid to ask."
+    }
+  ],
+  "memories": [
+    "Reading nights ran late every winter, and nobody ever admitted to being the last one out.",
+    "A soldering iron with tape on the handle that outlasted three laptops."
+  ],
+  "fictional": true
+}
