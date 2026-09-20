@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contribute — Legacy</title>
+    <meta name="description" content="How to add a legacy profile using GitHub's web interface." />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="site-title" href="index.html">Legacy</a>
+        <nav class="site-nav" aria-label="Main">
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="profiles.html">Profiles</a></li>
+            <li><a href="contribute.html" aria-current="page">Contribute</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="wrap">
+      <h1>Add a profile</h1>
+      <p class="lede">
+        A profile is one small JSON file. You can create it entirely in your web
+        browser — no tools to install.
+      </p>
+
+      <h2>Before you start</h2>
+      <ul>
+        <li>Share only what you have permission to share, including any photos.</li>
+        <li>
+          Writing about someone else? You need appropriate authorisation from that
+          person, or from whoever is entitled to act for them.
+        </li>
+        <li>
+          Do not include birth dates, addresses, private contact details, passwords or
+          account access. This repository is public.
+        </li>
+        <li>
+          Removal is possible, but copies, forks and Git history may persist elsewhere
+          afterwards.
+        </li>
+      </ul>
+
+      <h2>Steps</h2>
+      <ol>
+        <li>
+          Open the
+          <a href="https://github.com/charles2ke/legacy/blob/main/profiles/_template.json">profile template</a>
+          and copy its contents.
+        </li>
+        <li>
+          Go to the
+          <a href="https://github.com/charles2ke/legacy/new/main/profiles">new file page</a>
+          for the <code>profiles/</code> folder and name your file
+          <code>your-slug.json</code>, using lowercase letters, numbers and hyphens.
+        </li>
+        <li>Paste the template, replace the example text with your own, and delete any optional fields you do not want.</li>
+        <li>
+          Add the same slug to
+          <a href="https://github.com/charles2ke/legacy/blob/main/profiles/index.json">profiles/index.json</a>.
+        </li>
+        <li>
+          Choose &ldquo;Create a new branch and start a pull request&rdquo;, then fill in
+          the checklist in the pull request template.
+        </li>
+      </ol>
+
+      <div class="actions">
+        <a class="button" href="https://github.com/charles2ke/legacy/blob/main/CONTRIBUTING.md">Full contributing guide</a>
+        <a class="button" href="https://github.com/charles2ke/legacy/blob/main/docs/PRIVACY.md">Privacy, consent &amp; removal</a>
+      </div>
+
+      <h2>What happens next</h2>
+      <p>
+        Automated checks confirm the file is valid. A maintainer then reviews it
+        against the moderation checklist — consent, private information,
+        impersonation, harassment and unauthorised copyrighted material — and either
+        merges it or explains what needs changing. Maintainers are volunteers, so
+        review may take a while.
+      </p>
+      <p class="note">
+        Publishing here is not permanent hosting and does not verify anyone's
+        identity. Keep your own copy of anything you care about.
+      </p>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>
+          Questions about what is appropriate to share? Open a discussion or issue and
+          describe the situation without including private details.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

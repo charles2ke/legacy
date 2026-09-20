@@ -1,0 +1,12 @@
+{
+  "name": "legacy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A community digital legacy archive: a static site and contributor-submitted profiles.",
+  "type": "module",
+  "scripts": {
+    "validate": "node scripts/validate-profiles.js",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}

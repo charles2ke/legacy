@@ -1,0 +1,26 @@
+{
+  "slug": "your-chosen-slug",
+  "name": "The name you want shown publicly",
+  "introduction": "One or two sentences introducing yourself in your own voice.",
+  "story": "Your story. Write as much or as little as you like. Blank lines separate paragraphs.\n\nThis is a second paragraph.",
+  "carryForward": "What you hope other people carry forward.",
+  "values": [
+    "Something you believe in",
+    "Another thing that matters to you"
+  ],
+  "work": [
+    {
+      "title": "Something you made or helped with",
+      "description": "Why it mattered to you and what someone else could do with it.",
+      "url": "https://example.com/your-project"
+    }
+  ],
+  "memories": [
+    "An ordinary memory you would like remembered."
+  ],
+  "image": {
+    "src": "https://example.com/a-photo-you-may-share.jpg",
+    "alt": "A description of the image for people who cannot see it."
+  },
+  "fictional": false
+}
