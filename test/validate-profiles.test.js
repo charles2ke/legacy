@@ -109,3 +109,14 @@ test('a non-slug entry in index.json is reported', async (t) => {
   assert.equal(result.valid, false);
   assert.ok(result.errors.some((error) => error.includes('is not a valid slug')));
 });
+
+test('an invalid index entry does not produce a spurious duplicate error', async (t) => {
+  const dir = await fixture(t, {
+    files: { 'someone.json': exampleProfile('someone') },
+    rawIndex: '{ "profiles": ["someone", 7] }',
+  });
+  const result = await validateProfilesDirectory(dir);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes('is not a valid slug')));
+  assert.ok(!result.errors.some((error) => error.includes('duplicate slugs')));
+});

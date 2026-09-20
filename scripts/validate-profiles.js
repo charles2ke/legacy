@@ -45,13 +45,17 @@ export async function validateProfilesDirectory(dir = profilesDir) {
     if (typeof index !== 'object' || index === null || Array.isArray(index) || !Array.isArray(index.profiles)) {
       errors.push('index.json: must contain a "profiles" array of slugs');
     } else {
-      const invalid = index.profiles.filter((slug) => typeof slug !== 'string' || !SLUG_PATTERN.test(slug));
-      for (const entry of invalid) {
-        errors.push(`index.json: ${JSON.stringify(entry)} is not a valid slug`);
+      const validSlugs = [];
+      for (const entry of index.profiles) {
+        if (typeof entry === 'string' && SLUG_PATTERN.test(entry)) {
+          validSlugs.push(entry);
+        } else {
+          errors.push(`index.json: ${JSON.stringify(entry)} is not a valid slug`);
+        }
       }
-      const listed = new Set(index.profiles.filter((slug) => !invalid.includes(slug)));
+      const listed = new Set(validSlugs);
       const present = new Set(entries.map((entry) => entry.slug));
-      if (listed.size !== index.profiles.length) {
+      if (listed.size !== validSlugs.length) {
         errors.push('index.json: contains duplicate slugs');
       }
       for (const slug of listed) {
