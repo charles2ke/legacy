@@ -1,7 +1,7 @@
 // Pure helpers shared by the site pages. They contain no DOM access so they can
 // be unit tested in Node, and so that rendering stays text-only by construction.
 
-import { SLUG_PATTERN, isSafeUrl } from './profile-schema.js';
+import { ALLOWED_IMAGE_SCHEMES, SLUG_PATTERN, isSafeUrl } from './profile-schema.js';
 
 /** Splits a story into paragraphs. Contributor text is never treated as HTML. */
 export function toParagraphs(text) {
@@ -44,7 +44,7 @@ export function safeWork(work) {
 /** Returns the image only when its source is safe, otherwise null. */
 export function safeImage(image) {
   if (!image || typeof image !== 'object') return null;
-  if (!isSafeUrl(image.src, { allowRelative: true })) return null;
+  if (!isSafeUrl(image.src, { allowRelative: true, schemes: ALLOWED_IMAGE_SCHEMES })) return null;
   if (typeof image.alt !== 'string' || image.alt.trim() === '') return null;
   return { src: image.src, alt: image.alt };
 }

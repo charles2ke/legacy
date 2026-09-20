@@ -20,6 +20,9 @@ export const MAX_LENGTHS = {
 // Only these URL schemes are allowed anywhere in a profile.
 export const ALLOWED_URL_SCHEMES = ['https:', 'http:', 'mailto:'];
 
+// Images are fetched by the browser, so they may not use mailto:.
+export const ALLOWED_IMAGE_SCHEMES = ['https:', 'http:'];
+
 // Fields a contributor may use. Anything else is rejected so typos and
 // unexpected (possibly sensitive) data never reach the site.
 const ALLOWED_TOP_LEVEL_FIELDS = [
@@ -39,9 +42,10 @@ const REQUIRED_TOP_LEVEL_FIELDS = ['slug', 'name', 'introduction', 'story', 'car
 
 /**
  * Returns true when `value` is a URL we are willing to link to or load.
- * Relative URLs are allowed only when `allowRelative` is true.
+ * Relative URLs are allowed only when `allowRelative` is true, and the accepted
+ * schemes can be narrowed with `schemes`.
  */
-export function isSafeUrl(value, { allowRelative = false } = {}) {
+export function isSafeUrl(value, { allowRelative = false, schemes = ALLOWED_URL_SCHEMES } = {}) {
   if (typeof value !== 'string') return false;
   const trimmed = value.trim();
   if (trimmed === '' || trimmed.length > MAX_LENGTHS.url) return false;
@@ -59,7 +63,7 @@ export function isSafeUrl(value, { allowRelative = false } = {}) {
   } catch {
     return false;
   }
-  return ALLOWED_URL_SCHEMES.includes(parsed.protocol);
+  return schemes.includes(parsed.protocol);
 }
 
 function checkText(errors, path, value, maxLength, { required = false } = {}) {
@@ -161,7 +165,7 @@ export function validateProfile(profile) {
     if (typeof image !== 'object' || image === null || Array.isArray(image)) {
       errors.push('image: must be an object with "src" and "alt"');
     } else {
-      if (!isSafeUrl(image.src, { allowRelative: true })) {
+      if (!isSafeUrl(image.src, { allowRelative: true, schemes: ALLOWED_IMAGE_SCHEMES })) {
         errors.push('image.src: must be a repository path or a valid https/http URL');
       }
       checkText(errors, 'image.alt', image.alt, MAX_LENGTHS.imageAlt, { required: true });

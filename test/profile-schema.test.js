@@ -68,6 +68,12 @@ test('image requires alt text and a safe source', () => {
   });
   assert.equal(badSrc.valid, false);
 
+  const mailto = validateProfile({
+    ...validProfile,
+    image: { src: 'mailto:someone@example.com', alt: 'Not an image' },
+  });
+  assert.equal(mailto.valid, false);
+
   const repoPath = validateProfile({
     ...validProfile,
     image: { src: 'assets/images/example.jpg', alt: 'A picture.' },

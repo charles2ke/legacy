@@ -15,11 +15,14 @@ const exampleProfile = (slug) => ({
 });
 
 /** Creates a throwaway profiles directory that is deleted when the test ends. */
-async function fixture(t, { files = {}, index = [] } = {}) {
+async function fixture(t, { files = {}, index = [], rawIndex } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), 'legacy-profiles-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   await writeFile(path.join(dir, '_template.json'), JSON.stringify(exampleProfile('your-chosen-slug')));
-  await writeFile(path.join(dir, 'index.json'), JSON.stringify({ profiles: index }));
+  await writeFile(
+    path.join(dir, 'index.json'),
+    rawIndex === undefined ? JSON.stringify({ profiles: index }) : rawIndex,
+  );
   for (const [name, content] of Object.entries(files)) {
     await writeFile(path.join(dir, name), typeof content === 'string' ? content : JSON.stringify(content));
   }
@@ -79,4 +82,23 @@ test('invalid JSON is reported rather than thrown', async (t) => {
   const result = await validateProfilesDirectory(dir);
   assert.equal(result.valid, false);
   assert.ok(result.errors.some((error) => error.includes('broken.json: is not valid JSON')));
+});
+
+test('duplicate slugs in index.json are reported', async (t) => {
+  const dir = await fixture(t, {
+    files: { 'someone.json': exampleProfile('someone') },
+    index: ['someone', 'someone'],
+  });
+  const result = await validateProfilesDirectory(dir);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes('duplicate slugs')));
+});
+
+test('an index.json without a profiles array is reported', async (t) => {
+  for (const rawIndex of ['null', '[]', '"nope"', '{ "profiles": "someone" }']) {
+    const dir = await fixture(t, { rawIndex });
+    const result = await validateProfilesDirectory(dir);
+    assert.equal(result.valid, false, `${rawIndex} should be rejected`);
+    assert.ok(result.errors.some((error) => error.includes('must contain a "profiles" array of slugs')));
+  }
 });

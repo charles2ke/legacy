@@ -41,8 +41,8 @@ export async function validateProfilesDirectory(dir = profilesDir) {
     errors.push(`index.json: is not valid JSON (${error.message})`);
   }
 
-  if (index) {
-    if (!Array.isArray(index.profiles)) {
+  if (index !== undefined) {
+    if (typeof index !== 'object' || index === null || Array.isArray(index) || !Array.isArray(index.profiles)) {
       errors.push('index.json: must contain a "profiles" array of slugs');
     } else {
       const listed = new Set(index.profiles);
