@@ -6,7 +6,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { validateCollection } from '../assets/js/profile-schema.js';
+import { validateCollection, validateProfile } from '../assets/js/profile-schema.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const profilesDir = path.join(repoRoot, 'profiles');
@@ -59,9 +59,12 @@ export async function validateProfilesDirectory(dir = profilesDir) {
     }
   }
 
-  // The template must stay valid apart from its placeholder slug.
+  // The template itself must stay a valid profile, so copying it is a safe start.
   try {
-    await readJson(path.join(dir, '_template.json'));
+    const template = await readJson(path.join(dir, '_template.json'));
+    for (const error of validateProfile(template).errors) {
+      errors.push(`_template.json: ${error}`);
+    }
   } catch (error) {
     errors.push(`_template.json: is not valid JSON (${error.message})`);
   }

@@ -14,7 +14,6 @@ export const MAX_LENGTHS = {
   memory: 1000,
   imageAlt: 300,
   carryForward: 1000,
-  linkLabel: 120,
   url: 500,
 };
 
