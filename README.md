@@ -153,6 +153,7 @@ Two different things live in this repository, under two different terms:
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to submit, and what maintainers check
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — expected behaviour
+- [SECURITY.md](SECURITY.md) — what counts as a vulnerability and how to report it
 - [docs/PRIVACY.md](docs/PRIVACY.md) — consent, privacy and removal requests
 - [docs/MODERATION.md](docs/MODERATION.md) — the review checklist maintainers use
 - [docs/BACKUPS.md](docs/BACKUPS.md) — backups and stewardship

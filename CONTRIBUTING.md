@@ -94,6 +94,12 @@ If a matter genuinely cannot be discussed in public, say only that, and ask the
 maintainers for a private contact route. No private reporting channel is published
 in this repository today; see [docs/PRIVACY.md](docs/PRIVACY.md).
 
+## Security reports
+
+Found a way to make submitted content run scripts, escape the URL rules, or
+otherwise misbehave? Do not open a public issue with the details — follow
+[SECURITY.md](SECURITY.md).
+
 ## Code of conduct
 
 Participation is covered by the [Code of Conduct](CODE_OF_CONDUCT.md).

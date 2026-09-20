@@ -51,6 +51,9 @@ route.
 > and restricted discussions. Until then, reports arrive only through public issues
 > and pull requests.
 
+Conduct reports are different from security vulnerabilities. For a flaw in the
+site or workflows, follow [SECURITY.md](SECURITY.md) instead.
+
 ## Enforcement
 
 Maintainers may edit, hide, decline or remove contributions, comments and profiles
