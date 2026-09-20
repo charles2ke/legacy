@@ -23,6 +23,9 @@ export const ALLOWED_URL_SCHEMES = ['https:', 'http:', 'mailto:'];
 // Images are fetched by the browser, so they may not use mailto:.
 export const ALLOWED_IMAGE_SCHEMES = ['https:', 'http:'];
 
+// Images committed to this repository must live here.
+export const IMAGE_PATH_PREFIX = 'assets/images/';
+
 // Fields a contributor may use. Anything else is rejected so typos and
 // unexpected (possibly sensitive) data never reach the site.
 const ALLOWED_TOP_LEVEL_FIELDS = [
@@ -41,21 +44,15 @@ const ALLOWED_TOP_LEVEL_FIELDS = [
 const REQUIRED_TOP_LEVEL_FIELDS = ['slug', 'name', 'introduction', 'story', 'carryForward'];
 
 /**
- * Returns true when `value` is a URL we are willing to link to or load.
- * Relative URLs are allowed only when `allowRelative` is true, and the accepted
- * schemes can be narrowed with `schemes`.
+ * Returns true when `value` is an absolute URL we are willing to link to or
+ * load. The accepted schemes can be narrowed with `schemes`.
  */
-export function isSafeUrl(value, { allowRelative = false, schemes = ALLOWED_URL_SCHEMES } = {}) {
+export function isSafeUrl(value, { schemes = ALLOWED_URL_SCHEMES } = {}) {
   if (typeof value !== 'string') return false;
   const trimmed = value.trim();
   if (trimmed === '' || trimmed.length > MAX_LENGTHS.url) return false;
   // Reject control characters that can be used to smuggle "javascript:" past checks.
   if (/[\u0000-\u001f\u007f]/.test(trimmed)) return false;
-
-  if (allowRelative && !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
-    // A relative path: must not be protocol-relative ("//evil.example").
-    return !trimmed.startsWith('//');
-  }
 
   let parsed;
   try {
@@ -64,6 +61,22 @@ export function isSafeUrl(value, { allowRelative = false, schemes = ALLOWED_URL_
     return false;
   }
   return schemes.includes(parsed.protocol);
+}
+
+/**
+ * Image sources may either be an https/http URL or a file committed to
+ * `assets/images/`. Traversal and odd characters are rejected so a profile can
+ * never point at something outside that folder.
+ */
+export function isSafeImageSrc(value) {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (trimmed.startsWith(IMAGE_PATH_PREFIX)) {
+    if (trimmed.length > MAX_LENGTHS.url) return false;
+    if (trimmed.includes('..') || trimmed.endsWith('/')) return false;
+    return /^[A-Za-z0-9._/-]+$/.test(trimmed);
+  }
+  return isSafeUrl(trimmed, { schemes: ALLOWED_IMAGE_SCHEMES });
 }
 
 function checkText(errors, path, value, maxLength, { required = false } = {}) {
@@ -165,8 +178,8 @@ export function validateProfile(profile) {
     if (typeof image !== 'object' || image === null || Array.isArray(image)) {
       errors.push('image: must be an object with "src" and "alt"');
     } else {
-      if (!isSafeUrl(image.src, { allowRelative: true, schemes: ALLOWED_IMAGE_SCHEMES })) {
-        errors.push('image.src: must be a repository path or a valid https/http URL');
+      if (!isSafeImageSrc(image.src)) {
+        errors.push(`image.src: must be an https/http URL or a file under ${IMAGE_PATH_PREFIX}`);
       }
       checkText(errors, 'image.alt', image.alt, MAX_LENGTHS.imageAlt, { required: true });
       for (const key of Object.keys(image)) {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { isSafeUrl, validateCollection, validateProfile } from '../assets/js/profile-schema.js';
+import { isSafeImageSrc, isSafeUrl, validateCollection, validateProfile } from '../assets/js/profile-schema.js';
 
 const validProfile = {
   slug: 'river-song',
@@ -99,8 +99,20 @@ test('isSafeUrl allows only http, https and mailto', () => {
   assert.equal(isSafeUrl(''), false);
   assert.equal(isSafeUrl(undefined), false);
   assert.equal(isSafeUrl('images/photo.jpg'), false);
-  assert.equal(isSafeUrl('images/photo.jpg', { allowRelative: true }), true);
-  assert.equal(isSafeUrl('//evil.example/photo.jpg', { allowRelative: true }), false);
+});
+
+test('image sources allow https/http or files under assets/images/', () => {
+  assert.equal(isSafeImageSrc('https://example.com/a.jpg'), true);
+  assert.equal(isSafeImageSrc('assets/images/a.jpg'), true);
+  assert.equal(isSafeImageSrc('assets/images/nested/a.jpg'), true);
+  assert.equal(isSafeImageSrc('assets/images/../../secret.txt'), false);
+  assert.equal(isSafeImageSrc('assets/images/'), false);
+  assert.equal(isSafeImageSrc('../../etc/passwd'), false);
+  assert.equal(isSafeImageSrc('/etc/passwd'), false);
+  assert.equal(isSafeImageSrc('//evil.example/photo.jpg'), false);
+  assert.equal(isSafeImageSrc('mailto:someone@example.com'), false);
+  assert.equal(isSafeImageSrc('javascript:alert(1)'), false);
+  assert.equal(isSafeImageSrc(undefined), false);
 });
 
 test('a collection rejects duplicate slugs and file name mismatches', () => {

@@ -51,9 +51,14 @@ async function loadProfiles() {
 function profileCard(profile) {
   const card = el('li', null, 'card');
   const heading = el('h2');
-  const link = el('a', profile.name);
-  link.href = profilePageUrl(profile.slug);
-  heading.append(link);
+  const href = profilePageUrl(profile.slug);
+  if (href) {
+    const link = el('a', profile.name);
+    link.href = href;
+    heading.append(link);
+  } else {
+    heading.textContent = profile.name;
+  }
   card.append(heading);
 
   if (profile.fictional) {

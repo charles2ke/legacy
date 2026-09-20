@@ -102,3 +102,10 @@ test('an index.json without a profiles array is reported', async (t) => {
     assert.ok(result.errors.some((error) => error.includes('must contain a "profiles" array of slugs')));
   }
 });
+
+test('a non-slug entry in index.json is reported', async (t) => {
+  const dir = await fixture(t, { rawIndex: '{ "profiles": [{ "slug": "someone" }] }' });
+  const result = await validateProfilesDirectory(dir);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes('is not a valid slug')));
+});

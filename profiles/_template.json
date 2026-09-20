@@ -19,7 +19,7 @@
     "An ordinary memory you would like remembered."
   ],
   "image": {
-    "src": "https://example.com/a-photo-you-may-share.jpg",
+    "src": "assets/images/a-photo-you-may-share.jpg",
     "alt": "A description of the image for people who cannot see it."
   },
   "fictional": false

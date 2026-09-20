@@ -64,7 +64,7 @@ Each profile is one JSON file named after its slug, for example
 | `values` | no | Up to 10 short lines |
 | `work` | no | Up to 20 entries: `title`, optional `description`, optional `url` |
 | `memories` | no | Up to 20 short memories |
-| `image` | no | `src` (repository path or `https`/`http` URL) and required `alt` text |
+| `image` | no | `src` (an `https`/`http` URL, or a file committed under `assets/images/`) and required `alt` text |
 | `fictional` | no | `true` marks a demonstration profile |
 
 Optional fields stay optional — leave them out entirely if you do not want them.

@@ -62,6 +62,9 @@ The fields, limits and required values are documented in the
 - `slug` must match the file name and must not already exist.
 - Links may only use `https:`, `http:` or `mailto:`. Other schemes are rejected.
 - Images need `alt` text describing the picture for people who cannot see it.
+- An image `src` must be an `https`/`http` URL, or a file you committed under
+  `assets/images/`. Committed images are preferred, because an external host can
+  disappear and can see visitors' requests.
 - Fields not listed in the format table are rejected, so please do not invent new
   ones. If something important does not fit, open an issue and suggest it.
 - Contributor text is always rendered as text; HTML and scripts will not run.

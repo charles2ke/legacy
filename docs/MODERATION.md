@@ -54,7 +54,7 @@ requesting private documents in public — or decline.
 
 - [ ] Links use `https:`, `http:` or `mailto:` only (validation enforces this).
 - [ ] Linked destinations are not spam, malware, phishing or unrelated promotion.
-- [ ] Images are hosted in this repository or at a stable, appropriate location.
+- [ ] Images are committed under `assets/images/` or hosted at a stable, appropriate location.
 
 ## Decision
 
