@@ -42,6 +42,20 @@ test('empty required fields are rejected', () => {
   assert.equal(result.valid, false);
 });
 
+test('null is rejected, not treated as a missing optional value', () => {
+  const nullName = validateProfile({ ...validProfile, name: null });
+  assert.equal(nullName.valid, false);
+  assert.ok(nullName.errors.some((error) => error.startsWith('name:')));
+
+  const nullValues = validateProfile({ ...validProfile, values: [null] });
+  assert.equal(nullValues.valid, false);
+  assert.ok(nullValues.errors.some((error) => error.startsWith('values[0]:')));
+
+  const nullMemories = validateProfile({ ...validProfile, memories: [null] });
+  assert.equal(nullMemories.valid, false);
+  assert.ok(nullMemories.errors.some((error) => error.startsWith('memories[0]:')));
+});
+
 test('unknown fields are rejected so unexpected data is never published', () => {
   const result = validateProfile({ ...validProfile, homeAddress: '1 Example Street' });
   assert.equal(result.valid, false);

@@ -80,11 +80,11 @@ export function isSafeImageSrc(value) {
 }
 
 function checkText(errors, path, value, maxLength, { required = false } = {}) {
-  if (value === undefined || value === null) {
+  if (value === undefined) {
     if (required) errors.push(`${path}: is required`);
     return;
   }
-  if (typeof value !== 'string') {
+  if (value === null || typeof value !== 'string') {
     errors.push(`${path}: must be a string`);
     return;
   }
