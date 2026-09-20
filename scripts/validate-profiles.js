@@ -2,11 +2,16 @@
 // Validates every profile in profiles/ and checks that profiles/index.json
 // lists exactly the profiles that exist. Exits non-zero on any problem.
 
-import { readFile, readdir } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { SLUG_PATTERN, validateCollection, validateProfile } from '../assets/js/profile-schema.js';
+import {
+  IMAGE_PATH_PREFIX,
+  SLUG_PATTERN,
+  validateCollection,
+  validateProfile,
+} from '../assets/js/profile-schema.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const profilesDir = path.join(repoRoot, 'profiles');
@@ -15,7 +20,7 @@ async function readJson(file) {
   return JSON.parse(await readFile(file, 'utf8'));
 }
 
-export async function validateProfilesDirectory(dir = profilesDir) {
+export async function validateProfilesDirectory(dir = profilesDir, root = path.dirname(dir)) {
   const errors = [];
   const files = (await readdir(dir))
     .filter((file) => file.endsWith('.json'))
@@ -33,6 +38,18 @@ export async function validateProfilesDirectory(dir = profilesDir) {
   }
 
   errors.push(...validateCollection(entries).errors);
+
+  // An image committed to the repository must actually be there.
+  for (const entry of entries) {
+    const src = entry.profile?.image?.src;
+    if (typeof src === 'string' && src.startsWith(IMAGE_PATH_PREFIX)) {
+      try {
+        await access(path.join(root, src));
+      } catch {
+        errors.push(`${entry.slug}: image.src "${src}" does not exist in the repository`);
+      }
+    }
+  }
 
   let index;
   try {

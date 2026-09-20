@@ -129,7 +129,7 @@ function renderProfile(container, profile) {
       if (item.url) {
         const link = el('a', item.title);
         link.href = item.url;
-        link.rel = 'noopener nofollow ugc';
+        link.rel = 'nofollow ugc';
         heading.append(link);
       } else {
         heading.textContent = item.title;

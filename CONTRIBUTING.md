@@ -64,7 +64,10 @@ The fields, limits and required values are documented in the
 - Images need `alt` text describing the picture for people who cannot see it.
 - An image `src` must be an `https`/`http` URL, or a file you committed under
   `assets/images/`. Committed images are preferred, because an external host can
-  disappear and can see visitors' requests.
+  disappear and can see visitors' requests. The template's `image` block is a
+  placeholder: replace it with your own image, or delete the whole block.
+  Validation fails if a profile points at an `assets/images/` file that is not in
+  the repository.
 - Fields not listed in the format table are rejected, so please do not invent new
   ones. If something important does not fit, open an issue and suggest it.
 - Contributor text is always rendered as text; HTML and scripts will not run.

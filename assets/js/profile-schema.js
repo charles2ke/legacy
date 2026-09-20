@@ -199,7 +199,9 @@ export function validateProfile(profile) {
 
 /**
  * Validates a whole collection: every profile is valid, slugs are unique and
- * each profile's slug matches the file it lives in.
+ * each profile's slug matches the file it lives in. The uniqueness and file
+ * name checks also cover callers that build entries from something other than
+ * a directory listing.
  * @param {{ slug: string, profile: unknown }[]} entries
  */
 export function validateCollection(entries) {

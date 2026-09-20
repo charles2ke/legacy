@@ -120,3 +120,18 @@ test('an invalid index entry does not produce a spurious duplicate error', async
   assert.ok(result.errors.some((error) => error.includes('is not a valid slug')));
   assert.ok(!result.errors.some((error) => error.includes('duplicate slugs')));
 });
+
+test('a repository image that does not exist is reported', async (t) => {
+  const dir = await fixture(t, {
+    files: {
+      'someone.json': {
+        ...exampleProfile('someone'),
+        image: { src: 'assets/images/missing.jpg', alt: 'Missing picture.' },
+      },
+    },
+    index: ['someone'],
+  });
+  const result = await validateProfilesDirectory(dir);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes('does not exist in the repository')));
+});
