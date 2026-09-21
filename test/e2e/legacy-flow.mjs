@@ -61,6 +61,7 @@ try {
     page.waitForNavigation({ waitUntil: 'load' }),
     page.getByRole('button', { name: 'Approve' }).click(),
   ]);
+  await page.getByText('No profiles are awaiting review.').waitFor();
 
   await page.goto(`${baseUrl}/profiles.html`);
   await page.getByRole('link', { name: 'Browser River' }).waitFor();
