@@ -12,8 +12,8 @@ async function request(url, options = {}) {
   const body = response.status === 204 ? null : await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(body.error || 'Request failed');
-    error.details = body.details;
     error.status = response.status;
+    error.details = body.details;
     throw error;
   }
   return body;
@@ -301,8 +301,12 @@ async function initModerator(container) {
     }
     if (navigation.childNodes.length) container.append(navigation);
   } catch (error) {
-    if (isAuthError(error)) window.location.assign('login.html');
-    else message(error.message, true);
+    if (isAuthError(error)) {
+      window.location.assign('login.html');
+      return;
+    }
+    container.textContent = '';
+    message(error.message, true);
   }
 }
 
