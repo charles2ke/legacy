@@ -121,13 +121,14 @@ export function isSafeImageSrc(value) {
 }
 
 /**
- * The visibility a profile asks for. Returns the raw value when it is not one
- * of VISIBILITY_MODES so that an invalid or hostile value can never be mistaken
- * for "public" by the callers below.
+ * The visibility a profile asks for. Only an absent field means "public":
+ * anything else is returned as it was written, including null and unknown
+ * strings, so a hostile or mistaken value can never be mistaken for "public"
+ * by the callers below.
  */
 export function profileVisibility(profile) {
   const value = profile?.visibility;
-  return value === undefined || value === null ? DEFAULT_VISIBILITY : value;
+  return value === undefined ? DEFAULT_VISIBILITY : value;
 }
 
 /**

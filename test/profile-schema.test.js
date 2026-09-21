@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { isSafeImageSrc, isSafeUrl, validateCollection, validateProfile } from '../assets/js/profile-schema.js';
+import {
+  isAllowedViewer,
+  isPublishableOn,
+  isSafeImageSrc,
+  isSafeUrl,
+  profileVisibility,
+  validateCollection,
+  validateProfile,
+} from '../assets/js/profile-schema.js';
 
 const validProfile = {
   slug: 'river-song',
@@ -140,4 +148,133 @@ test('a collection rejects duplicate slugs and file name mismatches', () => {
   const mismatch = validateCollection([{ slug: 'other-name', profile: validProfile }]);
   assert.equal(mismatch.valid, false);
   assert.ok(mismatch.errors.some((error) => error.includes('must match the file name')));
+});
+
+test('every visibility mode is accepted, and anything else is rejected', () => {
+  assert.deepEqual(validateProfile({ ...validProfile, visibility: 'public' }).errors, []);
+  assert.deepEqual(validateProfile({ ...validProfile, visibility: 'private' }).errors, []);
+  assert.deepEqual(
+    validateProfile({ ...validProfile, visibility: 'restricted', allowedViewers: ['a@example.com'] }).errors,
+    [],
+  );
+
+  for (const visibility of ['secret', 'unlisted', '', 'PUBLIC', true, null, ['public']]) {
+    const result = validateProfile({ ...validProfile, visibility });
+    assert.equal(result.valid, false, `${JSON.stringify(visibility)} should be rejected`);
+    assert.ok(result.errors.some((error) => error.startsWith('visibility:')));
+  }
+});
+
+test('a profile without a visibility field is public, as it was before', () => {
+  assert.equal(profileVisibility(validProfile), 'public');
+  assert.deepEqual(validateProfile(validProfile), { valid: true, errors: [] });
+  assert.equal(isPublishableOn(validProfile, 'public'), true);
+});
+
+test('an unrecognised visibility is never treated as public', () => {
+  // profileVisibility reports the raw value so callers fail closed rather than
+  // publishing something that asked for anything other than "public".
+  assert.equal(profileVisibility({ visibility: 'secret' }), 'secret');
+  assert.equal(isPublishableOn({ visibility: 'secret' }, 'public'), false);
+  assert.equal(isPublishableOn({ visibility: 'secret' }, 'private'), false);
+});
+
+test('only public profiles may be published on a public instance', () => {
+  assert.equal(isPublishableOn({ visibility: 'public' }, 'public'), true);
+  assert.equal(isPublishableOn({ visibility: 'private' }, 'public'), false);
+  assert.equal(isPublishableOn({ visibility: 'restricted' }, 'public'), false);
+
+  for (const visibility of ['public', 'private', 'restricted']) {
+    assert.equal(isPublishableOn({ visibility }, 'private'), true, `${visibility} belongs on a private instance`);
+  }
+});
+
+test('an unknown or missing instance falls back to the strictest one', () => {
+  assert.equal(isPublishableOn({ visibility: 'private' }), false);
+  assert.equal(isPublishableOn({ visibility: 'private' }, undefined), false);
+  assert.equal(isPublishableOn({ visibility: 'private' }, 'PRIVATE'), false);
+  assert.equal(isPublishableOn({ visibility: 'private' }, 'anything-else'), false);
+});
+
+test('a collection refuses non-public profiles on a public instance', () => {
+  const entries = [{ slug: 'river-song', profile: { ...validProfile, visibility: 'private' } }];
+
+  const onPublic = validateCollection(entries);
+  assert.equal(onPublic.valid, false);
+  assert.ok(onPublic.errors.some((error) => error.includes('is not allowed on a "public" instance')));
+
+  const onPrivate = validateCollection(entries, { instance: 'private' });
+  assert.deepEqual(onPrivate.errors, []);
+});
+
+test('admins must be GitHub usernames and are capped', () => {
+  assert.deepEqual(validateProfile({ ...validProfile, admins: ['charles2ke', 'a-b-c', 'x'] }).errors, []);
+
+  for (const admin of ['@charles2ke', 'has space', 'ends-', '-starts', 'a--b', 'a'.repeat(40), 7, null]) {
+    const result = validateProfile({ ...validProfile, admins: [admin] });
+    assert.equal(result.valid, false, `${JSON.stringify(admin)} should be rejected`);
+    assert.ok(result.errors.some((error) => error.startsWith('admins[0]:')));
+  }
+
+  const tooMany = validateProfile({ ...validProfile, admins: Array(11).fill('charles2ke') });
+  assert.equal(tooMany.valid, false);
+  assert.ok(tooMany.errors.some((error) => error.includes('items or fewer')));
+
+  const notAnArray = validateProfile({ ...validProfile, admins: 'charles2ke' });
+  assert.equal(notAnArray.valid, false);
+});
+
+test('allowedViewers is required for restricted profiles and forbidden otherwise', () => {
+  const missing = validateProfile({ ...validProfile, visibility: 'restricted' });
+  assert.equal(missing.valid, false);
+  assert.ok(missing.errors.some((error) => error.includes('is required when visibility is "restricted"')));
+
+  const empty = validateProfile({ ...validProfile, visibility: 'restricted', allowedViewers: [] });
+  assert.equal(empty.valid, false);
+  assert.ok(empty.errors.some((error) => error.includes('at least one viewer')));
+
+  for (const visibility of [undefined, 'public', 'private']) {
+    const profile = { ...validProfile, allowedViewers: ['someone@example.com'] };
+    if (visibility !== undefined) profile.visibility = visibility;
+    const result = validateProfile(profile);
+    assert.equal(result.valid, false, `${visibility} should not carry an allowlist`);
+    assert.ok(result.errors.some((error) => error.includes('only allowed when visibility is "restricted"')));
+  }
+});
+
+test('allowedViewers entries must be identifiers a host can match on', () => {
+  const valid = validateProfile({
+    ...validProfile,
+    visibility: 'restricted',
+    allowedViewers: ['someone@example.com', '@example.org', 'group:Close family'],
+  });
+  assert.deepEqual(valid.errors, []);
+
+  for (const viewer of ['not-an-email', 'someone@', '@', '@localhost', 'group:', ' ', '', 7, null]) {
+    const result = validateProfile({
+      ...validProfile,
+      visibility: 'restricted',
+      allowedViewers: [viewer],
+    });
+    assert.equal(result.valid, false, `${JSON.stringify(viewer)} should be rejected`);
+    assert.ok(result.errors.some((error) => error.startsWith('allowedViewers[0]:')));
+  }
+
+  const tooMany = validateProfile({
+    ...validProfile,
+    visibility: 'restricted',
+    allowedViewers: Array(1001).fill('someone@example.com'),
+  });
+  assert.equal(tooMany.valid, false);
+  assert.ok(tooMany.errors.some((error) => error.includes('items or fewer')));
+});
+
+test('isAllowedViewer rejects control characters and over-long values', () => {
+  assert.equal(isAllowedViewer('someone@example.com'), true);
+  assert.equal(isAllowedViewer('some.one+tag@sub.example.com'), true);
+  assert.equal(isAllowedViewer('@example.com'), true);
+  assert.equal(isAllowedViewer('group:Family'), true);
+  assert.equal(isAllowedViewer('some\none@example.com'), false);
+  assert.equal(isAllowedViewer(`${'a'.repeat(250)}@example.com`), false);
+  assert.equal(isAllowedViewer(undefined), false);
 });
