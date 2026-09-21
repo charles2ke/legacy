@@ -2,7 +2,7 @@
 // with textContent or as attributes on elements we create, so submitted HTML or
 // scripts are never executed.
 
-import { isPublishableOn, normaliseInstance, validateProfile } from './profile-schema.js';
+import { validateProfile } from './profile-schema.js';
 import {
   profileDataUrl,
   profilePageUrl,
@@ -12,8 +12,6 @@ import {
   safeWork,
   toParagraphs,
 } from './render.js';
-
-const indexUrl = new URL('profiles/index.json', document.baseURI).toString();
 
 function el(tag, text, className) {
   const node = document.createElement(tag);
@@ -32,39 +30,10 @@ async function fetchJson(url) {
   return response.json();
 }
 
-/**
- * Reads the published slugs and the kind of instance this deployment is.
- * An unreadable or unrecognised setting falls back to "public", the strictest
- * one, so a failed request can never cause more to be shown.
- */
-async function loadIndex() {
-  const index = await fetchJson(indexUrl);
-  return {
-    instance: normaliseInstance(index?.instance),
-    slugs: Array.isArray(index?.profiles) ? index.profiles : [],
-  };
-}
-
 async function loadProfiles() {
-  const { instance, slugs } = await loadIndex();
-  const results = await Promise.all(
-    slugs.map(async (slug) => {
-      const url = profileDataUrl(slug, document.baseURI);
-      if (!url) return null;
-      try {
-        const profile = await fetchJson(url);
-        if (!validateProfile(profile).valid) return null;
-        // A profile this instance may not publish is never listed. On a public
-        // instance nothing should reach here, because validation refuses to let
-        // such a file be committed; on a private instance the host in front of
-        // the site is what actually keeps people out.
-        return isPublishableOn(profile, instance) ? profile : null;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  return results.filter(Boolean);
+  const query = new URLSearchParams(window.location.search);
+  const response = await fetchJson(`/api/profiles?${query}`);
+  return response;
 }
 
 function profileCard(profile) {
@@ -87,17 +56,37 @@ function profileCard(profile) {
   return card;
 }
 
-function renderList(container, profiles) {
+function renderList(container, profiles, pagination) {
   if (profiles.length === 0) {
     container.replaceChildren(
       el('p', 'No profiles have been published yet.', 'status'),
-      el('p', 'The first one could be yours — see the contributing guide to add a profile by pull request.'),
+      el('p', 'The first one could be yours — create an account to draft a profile.'),
     );
     return;
   }
   const list = el('ul', null, 'card-list');
   for (const profile of profiles) list.append(profileCard(profile));
-  container.replaceChildren(list);
+  const summary = el(
+    'p',
+    `Page ${pagination.page} of ${Math.max(1, pagination.pages)} · ${pagination.total} profile${pagination.total === 1 ? '' : 's'}`,
+    'status',
+  );
+  const navigation = el('nav', null, 'pagination');
+  navigation.setAttribute('aria-label', 'Profile pages');
+  const query = new URLSearchParams(window.location.search);
+  if (pagination.page > 1) {
+    query.set('page', String(pagination.page - 1));
+    const previous = el('a', '← Previous');
+    previous.href = `?${query}`;
+    navigation.append(previous);
+  }
+  if (pagination.page < pagination.pages) {
+    query.set('page', String(pagination.page + 1));
+    const next = el('a', 'Next →');
+    next.href = `?${query}`;
+    navigation.append(next);
+  }
+  container.replaceChildren(summary, list, navigation);
 }
 
 function section(title, node) {
@@ -221,9 +210,8 @@ function renderProfile(container, profile) {
 async function initListPage(container) {
   setStatus(container, 'Loading profiles…');
   try {
-    const profiles = await loadProfiles();
-    profiles.sort((a, b) => a.name.localeCompare(b.name));
-    renderList(container, profiles);
+    const result = await loadProfiles();
+    renderList(container, result.profiles, result.pagination);
   } catch {
     setStatus(container, 'Profiles could not be loaded. Try refreshing the page.');
   }
@@ -237,22 +225,10 @@ async function initProfilePage(container) {
     return;
   }
   setStatus(container, 'Loading profile…');
-
-  let instance;
   try {
-    ({ instance } = await loadIndex());
-  } catch {
-    instance = normaliseInstance(undefined);
-  }
-
-  try {
-    const profile = await fetchJson(url);
+    const profile = await fetchJson(`/api/profiles/${encodeURIComponent(slug)}`);
     if (!validateProfile(profile).valid) {
       setStatus(container, 'This profile could not be displayed because its file is not valid.');
-      return;
-    }
-    if (!isPublishableOn(profile, instance)) {
-      setStatus(container, 'This profile is not published on this site.');
       return;
     }
     renderProfile(container, profile);
@@ -266,3 +242,21 @@ if (listContainer) initListPage(listContainer);
 
 const profileContainer = document.querySelector('[data-profile-view]');
 if (profileContainer) initProfilePage(profileContainer);
+
+const removalContact = document.querySelector('[data-removal-contact]');
+if (removalContact) {
+  fetchJson('/api/config')
+    .then((config) => {
+      if (config.removalContact) {
+        const link = el('a', 'Private removal contact');
+        link.href = config.removalContact;
+        removalContact.replaceChildren(link);
+      } else {
+        removalContact.textContent =
+          'Private removal contact is not configured. Use the repository’s public issue guidance without posting sensitive evidence.';
+      }
+    })
+    .catch(() => {
+      removalContact.textContent = 'Removal contact configuration could not be loaded.';
+    });
+}

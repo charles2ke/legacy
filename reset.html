@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Reset password — Legacy</title><link rel="stylesheet" href="assets/css/styles.css" /><script type="module" src="assets/js/app.js"></script></head>
+  <body><a class="skip-link" href="#main">Skip to main content</a><header class="site-header"><div class="wrap"><a class="site-title" href="index.html">Legacy</a></div></header>
+    <main id="main" class="wrap narrow"><h1>Choose a new password</h1>
+      <form data-auth-form data-endpoint="/api/auth/reset-password"><input name="token" type="hidden" /><label for="password">New password (at least 12 characters)</label><input id="password" name="password" type="password" minlength="12" maxlength="200" autocomplete="new-password" required /><button class="button" type="submit">Reset password</button></form>
+      <p tabindex="-1" role="alert" data-message></p></main>
+  </body>
+</html>
+

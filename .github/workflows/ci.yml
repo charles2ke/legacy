@@ -11,18 +11,58 @@ permissions:
 
 jobs:
   validate:
-    name: Validate profiles and run tests
+    name: Build, audit and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
-      - name: Validate profiles
-        run: npm run validate
-      - name: Check CODEOWNERS matches the profiles
-        run: npm run codeowners:check
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev
+      - name: Validate production build
+        run: npm run build
       - name: Run tests
         run: npm test
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Bootstrap browser-test moderator
+        env:
+          DATABASE_PATH: /tmp/legacy-e2e.sqlite
+          SESSION_SECRET: ci-session-secret-used-only-for-browser-tests
+          MODERATOR_EMAIL: moderator@example.test
+          MODERATOR_PASSWORD: browser-moderator-password
+        run: npm run moderator:create
+      - name: Start application
+        env:
+          DATABASE_PATH: /tmp/legacy-e2e.sqlite
+          SESSION_SECRET: ci-session-secret-used-only-for-browser-tests
+          APP_BASE_URL: http://127.0.0.1:3000
+        run: |
+          npm start >/tmp/legacy-e2e.log 2>&1 &
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:3000/api/config && exit 0
+            sleep 1
+          done
+          cat /tmp/legacy-e2e.log
+          exit 1
+      - name: Run browser lifecycle test
+        env:
+          BROWSER_BASE_URL: http://127.0.0.1:3000
+          BROWSER_OWNER_EMAIL: browser-owner@example.test
+          BROWSER_OWNER_PASSWORD: browser-owner-password
+          MODERATOR_EMAIL: moderator@example.test
+          MODERATOR_PASSWORD: browser-moderator-password
+        run: npm run test:e2e
+      - name: Upload browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-screenshots
+          path: test-results/*.png
+          if-no-files-found: warn

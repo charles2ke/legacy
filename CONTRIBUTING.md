@@ -1,130 +1,63 @@
-# Contributing to Legacy
+# Contributing
 
-Thank you for considering adding something here. Profiles are contributed through
-pull requests; there are no accounts and no login.
+## Creating a profile
 
-Please read [docs/PRIVACY.md](docs/PRIVACY.md) before you start.
+1. Create an account in the running application. Authentication email remains
+   private.
+2. Save and preview a private draft in the guided editor.
+3. Include only material you have the right and consent to publish.
+4. Explicitly consent and submit the draft for review.
+5. Respond to private moderator feedback if the submission is rejected.
 
-## Before you write anything
+Approval publishes exactly the reviewed revision. Editing an approved profile
+creates a separate draft and requires another review. Owners can unpublish or
+delete from the dashboard.
 
-- **Permission is required.** You must have the right to share every piece of text
-  and media you submit, including photographs.
-- **Writing about someone else?** You need appropriate authorisation from that
-  person, or from whoever is entitled to act on their behalf. Say so in your pull
-  request — but do not attach private evidence to a public pull request or issue.
-- **Nothing sensitive.** No birth dates, addresses, private phone numbers or email
-  addresses, passwords, recovery codes or account access. This is not a credential
-  vault. Anything you submit becomes public.
-- **Removal is possible but not complete.** Content can be removed from this
-  repository, but copies, forks, caches and Git history may persist elsewhere.
-- **No permanence promise.** This project cannot guarantee hosting, maintenance or
-  that anyone will be remembered. Keep [your own backups](docs/BACKUPS.md).
+Do not include passwords, private addresses, government identifiers, private
+contact details, or evidence containing sensitive information. Identity is not
+verified by the platform.
 
-## Adding a profile using GitHub's web interface
+Optional `autobiography`, `links`, and `family` fields follow the shared schema.
+Only link to public pages you are comfortable publishing. Family entries must
+have the named person's permission, use a supported relationship, and contain
+no birth dates, addresses, health details or other sensitive notes. A related
+profile slug is optional and must name an existing archive profile.
 
-You do not need Git, a terminal, or any software beyond a browser.
+## Importing the old JSON archive
 
-1. Open [`profiles/_template.json`](profiles/_template.json) and copy everything in it.
-2. Go to the `profiles/` folder and choose **Add file → Create new file**.
-3. Name the file `your-slug.json`, using lowercase letters, numbers and single
-   hyphens — for example `river-song.json`. The slug must be unique.
-4. Paste the template and replace the example text with your own. Delete any
-   optional fields you do not want; make sure the remaining JSON is still valid
-   (no trailing commas).
-5. Scroll down, choose **Create a new branch for this commit and start a pull
-   request**, and click **Propose new file**.
-6. In the same pull request, edit [`profiles/index.json`](profiles/index.json) and
-   add your slug to the `profiles` list. (Open the file, click the pencil icon,
-   choose to commit to the branch you just created.)
-7. Complete the checklist in the pull request template and submit.
-
-Automated checks will run. If they fail, the check output says exactly which field
-is wrong; edit your file in the pull request and the checks run again.
-
-## Adding a profile with Git
+The import command validates every indexed JSON file and requires a provenance
+note:
 
 ```bash
-git clone https://github.com/charles2ke/legacy.git
-cd legacy
-cp profiles/_template.json profiles/your-slug.json
-# edit profiles/your-slug.json and add "your-slug" to profiles/index.json
-npm run validate
-npm test
+npm run import:profiles -- \
+  --source=profiles \
+  --provenance="Repository archive; consent and ownership require manual review"
 ```
 
-Then open a pull request from a branch.
+Imports are deliberately **unowned, unpublished drafts**. They are never
+assigned to whichever user happens to run the command and are not published
+automatically. The complete batch is validated and imported atomically, so a
+conflict or invalid entry leaves no partial import. Before any migration-specific
+ownership or publication action, an operator must separately verify provenance,
+authority, content rights and consent. Do not put private consent evidence into
+the database or repository.
 
-## Field rules
+The included River Okonkwo file is labelled fictional in its name, introduction
+and `fictional` field. It is demonstration content, not a real biography.
 
-The fields, limits and required values are documented in the
-[profile format table](README.md#profile-format). In addition:
+## Code changes
 
-- `slug` must match the file name and must not already exist. The file must be
-  named `<slug>.json`: `profiles/` may hold nothing else besides `index.json` and
-  `_template.json`, because every file in it is published.
-- Links may only use `https:`, `http:` or `mailto:`. Other schemes are rejected.
-- `links` is for pointing elsewhere — social media, a blog, a photo gallery or any
-  other page. Each entry needs a short `label` and a `url`. Only link to pages you
-  are happy to have public, and remember external pages can change or disappear.
-- Images need `alt` text describing the picture for people who cannot see it.
-- An image `src` must be an `https`/`http` URL, or a file you committed under
-  `assets/images/`. Committed images are preferred, because an external host can
-  disappear and can see visitors' requests. The template's `image` block is a
-  placeholder: replace it with your own image, or delete the whole block.
-  Validation fails if a profile points at an `assets/images/` file that is not in
-  the repository.
-- `family` names other people, so only include someone if you have their
-  permission, and keep it to a name and relationship. Use `slug` only when that
-  person already has a profile in this archive; the site links to it when the
-  slug is valid. Do not record dates of birth, addresses or health details in a
-  `note`.
-- `autobiography` is optional. Use it if you want to write a longer account of
-  your life than `story`; blank lines separate paragraphs, and it is shown after
-  your story. Leave the field out entirely if you do not want one. The same
-  privacy rules apply: no birth dates, addresses, private phone numbers or email
-  addresses.
-- Fields not listed in the format table are rejected, so please do not invent new
-  ones. If something important does not fit, open an issue and suggest it.
-- Contributor text is always rendered as text; HTML and scripts will not run.
-- `visibility` may only be `public` here. This is a public repository: anything
-  committed becomes readable by anyone straight away, so validation rejects a
-  profile that asks to be `private` or `restricted` rather than publishing it
-  under a misleading label. Those modes need a separate private instance — see
-  [docs/VISIBILITY.md](docs/VISIBILITY.md).
-- `admins` is an optional list of GitHub usernames who own the profile and may
-  change it. After adding or changing it, run `npm run codeowners` and commit the
-  regenerated `.github/CODEOWNERS`; CI fails if the two disagree.
-- `allowedViewers` is rejected here. It only belongs on a `restricted` profile on
-  a private instance, and it is personal data in itself.
+```bash
+npm ci
+npm run build
+npm test
+npm audit --omit=dev
+```
 
-## What maintainers check
+Keep profile validation centralized in `assets/js/profile-schema.js`. Add tests
+for authorization and public-data boundaries when changing API behavior. Never
+weaken owner checks, moderator checks, CSRF protection, URL validation, or the
+approved-revision public query.
 
-Every pull request is reviewed against the
-[moderation checklist](docs/MODERATION.md), which covers consent, private
-information, impersonation, harassment and unauthorised copyrighted material.
-Maintainers may ask for changes, or decline a submission. Maintainers are
-volunteers, so review can take a while.
-
-## Changes to the site or tooling
-
-Pull requests that change HTML, CSS, JavaScript, scripts or workflows are welcome.
-Please keep dependencies at zero where possible, run `npm test` and `npm run
-validate`, and keep the site usable with a keyboard and a screen reader.
-
-## Asking a question
-
-Open an issue or a discussion. Describe the situation **without** including private
-details, identity documents or anyone's contact information — these are public.
-If a matter genuinely cannot be discussed in public, say only that, and ask the
-maintainers for a private contact route. No private reporting channel is published
-in this repository today; see [docs/PRIVACY.md](docs/PRIVACY.md).
-
-## Security reports
-
-Found a way to make submitted content run scripts, escape the URL rules, or
-otherwise misbehave? Do not open a public issue with the details — follow
-[SECURITY.md](SECURITY.md).
-
-## Code of conduct
-
-Participation is covered by the [Code of Conduct](CODE_OF_CONDUCT.md).
+Pull requests must not contain production secrets, real account databases,
+private profile drafts or sensitive consent evidence.
