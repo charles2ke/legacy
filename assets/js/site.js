@@ -6,7 +6,9 @@ import { isPublishableOn, normaliseInstance, validateProfile } from './profile-s
 import {
   profileDataUrl,
   profilePageUrl,
+  safeFamily,
   safeImage,
+  safeLinks,
   safeWork,
   toParagraphs,
 } from './render.js';
@@ -131,6 +133,13 @@ function renderProfile(container, profile) {
   for (const paragraph of toParagraphs(profile.story)) story.append(el('p', paragraph));
   parts.push(section('My story', story));
 
+  const autobiography = toParagraphs(profile.autobiography);
+  if (autobiography.length > 0) {
+    const longForm = el('div');
+    for (const paragraph of autobiography) longForm.append(el('p', paragraph));
+    parts.push(section('My autobiography', longForm));
+  }
+
   if (Array.isArray(profile.values) && profile.values.length > 0) {
     const list = el('ul');
     for (const value of profile.values) list.append(el('li', value));
@@ -158,10 +167,43 @@ function renderProfile(container, profile) {
     parts.push(section('Things I made', list));
   }
 
+  const links = safeLinks(profile.links);
+  if (links.length > 0) {
+    const list = el('ul', null, 'link-list');
+    for (const item of links) {
+      const entry = el('li');
+      const link = el('a', item.label);
+      link.href = item.url;
+      link.rel = 'nofollow ugc';
+      entry.append(link);
+      list.append(entry);
+    }
+    parts.push(section('Where to find me', list));
+  }
+
   if (Array.isArray(profile.memories) && profile.memories.length > 0) {
     const list = el('ul');
     for (const memory of profile.memories) list.append(el('li', memory));
     parts.push(section('Memories', list));
+  }
+
+  const family = safeFamily(profile.family);
+  if (family.length > 0) {
+    const list = el('ul', null, 'family-list');
+    for (const relation of family) {
+      const entry = el('li');
+      entry.append(el('span', `${relation.label}: `, 'family-relation'));
+      if (relation.href) {
+        const link = el('a', relation.name);
+        link.href = relation.href;
+        entry.append(link);
+      } else {
+        entry.append(el('span', relation.name));
+      }
+      if (relation.note) entry.append(el('p', relation.note));
+      list.append(entry);
+    }
+    parts.push(section('Family', list));
   }
 
   parts.push(section('What I hope you carry forward', el('p', profile.carryForward)));

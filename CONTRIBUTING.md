@@ -63,6 +63,9 @@ The fields, limits and required values are documented in the
   named `<slug>.json`: `profiles/` may hold nothing else besides `index.json` and
   `_template.json`, because every file in it is published.
 - Links may only use `https:`, `http:` or `mailto:`. Other schemes are rejected.
+- `links` is for pointing elsewhere — social media, a blog, a photo gallery or any
+  other page. Each entry needs a short `label` and a `url`. Only link to pages you
+  are happy to have public, and remember external pages can change or disappear.
 - Images need `alt` text describing the picture for people who cannot see it.
 - An image `src` must be an `https`/`http` URL, or a file you committed under
   `assets/images/`. Committed images are preferred, because an external host can
@@ -70,6 +73,16 @@ The fields, limits and required values are documented in the
   placeholder: replace it with your own image, or delete the whole block.
   Validation fails if a profile points at an `assets/images/` file that is not in
   the repository.
+- `family` names other people, so only include someone if you have their
+  permission, and keep it to a name and relationship. Use `slug` only when that
+  person already has a profile in this archive; the site links to it when the
+  slug is valid. Do not record dates of birth, addresses or health details in a
+  `note`.
+- `autobiography` is optional. Use it if you want to write a longer account of
+  your life than `story`; blank lines separate paragraphs, and it is shown after
+  your story. Leave the field out entirely if you do not want one. The same
+  privacy rules apply: no birth dates, addresses, private phone numbers or email
+  addresses.
 - Fields not listed in the format table are rejected, so please do not invent new
   ones. If something important does not fit, open an issue and suggest it.
 - Contributor text is always rendered as text; HTML and scripts will not run.

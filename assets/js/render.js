@@ -1,7 +1,18 @@
 // Pure helpers shared by the site pages. They contain no DOM access so they can
 // be unit tested in Node, and so that rendering stays text-only by construction.
 
-import { SLUG_PATTERN, isSafeImageSrc, isSafeUrl } from './profile-schema.js';
+import { ALLOWED_RELATIONS, SLUG_PATTERN, isSafeImageSrc, isSafeUrl } from './profile-schema.js';
+
+const RELATION_LABELS = {
+  parent: 'Parent',
+  child: 'Child',
+  sibling: 'Sibling',
+  partner: 'Partner',
+  grandparent: 'Grandparent',
+  grandchild: 'Grandchild',
+  relative: 'Relative',
+  'chosen-family': 'Chosen family',
+};
 
 /** Splits a story into paragraphs. Contributor text is never treated as HTML. */
 export function toParagraphs(text) {
@@ -41,10 +52,53 @@ export function safeWork(work) {
     }));
 }
 
+/**
+ * Keeps only the links (social media, blog, photo galleries and anything else)
+ * that have a label and a URL using a scheme we allow.
+ */
+export function safeLinks(links) {
+  if (!Array.isArray(links)) return [];
+  return links
+    .filter(
+      (item) =>
+        item &&
+        typeof item === 'object' &&
+        typeof item.label === 'string' &&
+        item.label.trim() !== '' &&
+        isSafeUrl(item.url),
+    )
+    .map((item) => ({ label: item.label, url: item.url }));
+}
+
 /** Returns the image only when its source is safe, otherwise null. */
 export function safeImage(image) {
   if (!image || typeof image !== 'object') return null;
   if (!isSafeImageSrc(image.src)) return null;
   if (typeof image.alt !== 'string' || image.alt.trim() === '') return null;
   return { src: image.src, alt: image.alt };
+}
+
+/**
+ * Normalises family relations for display: unknown relation types and unusable
+ * slugs are dropped, and each entry gains a label and a link when the related
+ * person also has a profile here.
+ */
+export function safeFamily(family) {
+  if (!Array.isArray(family)) return [];
+  return family
+    .filter(
+      (item) =>
+        item &&
+        typeof item === 'object' &&
+        typeof item.name === 'string' &&
+        item.name.trim() !== '' &&
+        ALLOWED_RELATIONS.includes(item.relation),
+    )
+    .map((item) => ({
+      relation: item.relation,
+      label: RELATION_LABELS[item.relation],
+      name: item.name,
+      note: typeof item.note === 'string' ? item.note : '',
+      href: profilePageUrl(item.slug),
+    }));
 }

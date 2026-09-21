@@ -8,16 +8,33 @@ export const MAX_LENGTHS = {
   name: 80,
   introduction: 280,
   story: 8000,
+  autobiography: 20000,
   value: 160,
   workTitle: 120,
   workDescription: 600,
+  linkLabel: 80,
   memory: 1000,
   imageAlt: 300,
   carryForward: 1000,
   url: 500,
   admin: 39,
   allowedViewer: 254,
+  relationName: 80,
+  relationNote: 200,
 };
+
+// Relationships a profile may describe. A fixed list keeps the wording simple
+// and stops free text being used to record sensitive detail about other people.
+export const ALLOWED_RELATIONS = [
+  'parent',
+  'child',
+  'sibling',
+  'partner',
+  'grandparent',
+  'grandchild',
+  'relative',
+  'chosen-family',
+];
 
 // How widely a profile may be published. Declared in the profile, but enforced
 // where it can actually be enforced: by the publication guard in
@@ -71,10 +88,13 @@ const ALLOWED_TOP_LEVEL_FIELDS = [
   'name',
   'introduction',
   'story',
+  'autobiography',
   'values',
   'work',
+  'links',
   'memories',
   'image',
+  'family',
   'carryForward',
   'fictional',
   'visibility',
@@ -229,6 +249,10 @@ export function validateProfile(profile) {
   checkText(errors, 'story', profile.story, MAX_LENGTHS.story);
   checkText(errors, 'carryForward', profile.carryForward, MAX_LENGTHS.carryForward);
 
+  if (profile.autobiography !== undefined) {
+    checkText(errors, 'autobiography', profile.autobiography, MAX_LENGTHS.autobiography);
+  }
+
   if (profile.values !== undefined && checkArray(errors, 'values', profile.values, 10)) {
     profile.values.forEach((value, index) => {
       checkText(errors, `values[${index}]`, value, MAX_LENGTHS.value);
@@ -257,9 +281,59 @@ export function validateProfile(profile) {
     });
   }
 
+  if (profile.links !== undefined && checkArray(errors, 'links', profile.links, 10)) {
+    profile.links.forEach((item, index) => {
+      const base = `links[${index}]`;
+      if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        errors.push(`${base}: must be an object with "label" and "url"`);
+        return;
+      }
+      checkText(errors, `${base}.label`, item.label, MAX_LENGTHS.linkLabel, { required: true });
+      if (!isSafeUrl(item.url)) {
+        errors.push(`${base}.url: must be a valid https, http or mailto URL`);
+      }
+      for (const key of Object.keys(item)) {
+        if (!['label', 'url'].includes(key)) {
+          errors.push(`${base}.${key}: is not an allowed field`);
+        }
+      }
+    });
+  }
+
   if (profile.memories !== undefined && checkArray(errors, 'memories', profile.memories, 20)) {
     profile.memories.forEach((memory, index) => {
       checkText(errors, `memories[${index}]`, memory, MAX_LENGTHS.memory);
+    });
+  }
+
+  if (profile.family !== undefined && checkArray(errors, 'family', profile.family, 20)) {
+    profile.family.forEach((item, index) => {
+      const base = `family[${index}]`;
+      if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        errors.push(`${base}: must be an object`);
+        return;
+      }
+      if (!ALLOWED_RELATIONS.includes(item.relation)) {
+        errors.push(`${base}.relation: must be one of ${ALLOWED_RELATIONS.join(', ')}`);
+      }
+      checkText(errors, `${base}.name`, item.name, MAX_LENGTHS.relationName, { required: true });
+      if (item.slug !== undefined) {
+        checkText(errors, `${base}.slug`, item.slug, MAX_LENGTHS.slug);
+        if (typeof item.slug === 'string' && !SLUG_PATTERN.test(item.slug)) {
+          errors.push(`${base}.slug: must be the slug of a profile in this archive`);
+        }
+        if (item.slug === profile.slug) {
+          errors.push(`${base}.slug: must not be this profile's own slug`);
+        }
+      }
+      if (item.note !== undefined) {
+        checkText(errors, `${base}.note`, item.note, MAX_LENGTHS.relationNote);
+      }
+      for (const key of Object.keys(item)) {
+        if (!['relation', 'name', 'slug', 'note'].includes(key)) {
+          errors.push(`${base}.${key}: is not an allowed field`);
+        }
+      }
     });
   }
 
@@ -340,6 +414,7 @@ export function validateProfile(profile) {
 export function validateCollection(entries, { instance = DEFAULT_INSTANCE } = {}) {
   const errors = [];
   const seen = new Set();
+  const knownSlugs = new Set(entries.map((entry) => entry.slug));
 
   for (const entry of entries) {
     const result = validateProfile(entry.profile);
@@ -361,6 +436,13 @@ export function validateCollection(entries, { instance = DEFAULT_INSTANCE } = {}
       errors.push(`${entry.slug}: duplicate slug`);
     }
     seen.add(entry.slug);
+    if (Array.isArray(entry.profile?.family)) {
+      entry.profile.family.forEach((item, index) => {
+        if (typeof item?.slug === 'string' && SLUG_PATTERN.test(item.slug) && !knownSlugs.has(item.slug)) {
+          errors.push(`${entry.slug}: family[${index}].slug: must be the slug of a profile in this archive`);
+        }
+      });
+    }
   }
 
   return { valid: errors.length === 0, errors };
