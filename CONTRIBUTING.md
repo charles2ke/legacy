@@ -59,7 +59,9 @@ Then open a pull request from a branch.
 The fields, limits and required values are documented in the
 [profile format table](README.md#profile-format). In addition:
 
-- `slug` must match the file name and must not already exist.
+- `slug` must match the file name and must not already exist. The file must be
+  named `<slug>.json`: `profiles/` may hold nothing else besides `index.json` and
+  `_template.json`, because every file in it is published.
 - Links may only use `https:`, `http:` or `mailto:`. Other schemes are rejected.
 - `links` is for pointing elsewhere — social media, a blog, a photo gallery or any
   other page. Each entry needs a short `label` and a `url`. Only link to pages you
@@ -84,6 +86,16 @@ The fields, limits and required values are documented in the
 - Fields not listed in the format table are rejected, so please do not invent new
   ones. If something important does not fit, open an issue and suggest it.
 - Contributor text is always rendered as text; HTML and scripts will not run.
+- `visibility` may only be `public` here. This is a public repository: anything
+  committed becomes readable by anyone straight away, so validation rejects a
+  profile that asks to be `private` or `restricted` rather than publishing it
+  under a misleading label. Those modes need a separate private instance — see
+  [docs/VISIBILITY.md](docs/VISIBILITY.md).
+- `admins` is an optional list of GitHub usernames who own the profile and may
+  change it. After adding or changing it, run `npm run codeowners` and commit the
+  regenerated `.github/CODEOWNERS`; CI fails if the two disagree.
+- `allowedViewers` is rejected here. It only belongs on a `restricted` profile on
+  a private instance, and it is personal data in itself.
 
 ## What maintainers check
 

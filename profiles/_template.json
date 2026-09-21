@@ -5,6 +5,10 @@
   "story": "Your story. Write as much or as little as you like. Blank lines separate paragraphs.\n\nThis is a second paragraph.",
   "autobiography": "Optional: a longer account of your life, in your own words. Delete this field if you do not want one.\n\nBlank lines separate paragraphs here too. Do not include birth dates, addresses or other private details.",
   "carryForward": "What you hope other people carry forward.",
+  "visibility": "public",
+  "admins": [
+    "your-github-username"
+  ],
   "values": [
     "Something you believe in",
     "Another thing that matters to you"

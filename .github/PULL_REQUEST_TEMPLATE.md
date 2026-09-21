@@ -37,6 +37,11 @@
 - [ ] The file is `profiles/<slug>.json` and its `slug` matches the file name.
 - [ ] The slug is added to `profiles/index.json`.
 - [ ] Links use `https:`, `http:` or `mailto:` only.
+- [ ] This profile is `public`. I understand this repository publishes everything
+      it holds, so it does not accept `private` or `restricted` profiles
+      ([docs/VISIBILITY.md](../docs/VISIBILITY.md)).
+- [ ] If I changed an `admins` list, I ran `npm run codeowners` and committed the
+      regenerated `.github/CODEOWNERS`.
 - [ ] (Optional, if you have Node.js) `npm run validate` and `npm test` pass locally.
 
 ### Understanding

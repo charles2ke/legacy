@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -15,13 +15,15 @@ const exampleProfile = (slug) => ({
 });
 
 /** Creates a throwaway profiles directory that is deleted when the test ends. */
-async function fixture(t, { files = {}, index = [], rawIndex } = {}) {
+async function fixture(t, { files = {}, index = [], rawIndex, instance } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), 'legacy-profiles-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   await writeFile(path.join(dir, '_template.json'), JSON.stringify(exampleProfile('your-chosen-slug')));
   await writeFile(
     path.join(dir, 'index.json'),
-    rawIndex === undefined ? JSON.stringify({ profiles: index }) : rawIndex,
+    rawIndex === undefined
+      ? JSON.stringify(instance === undefined ? { profiles: index } : { instance, profiles: index })
+      : rawIndex,
   );
   for (const [name, content] of Object.entries(files)) {
     await writeFile(path.join(dir, name), typeof content === 'string' ? content : JSON.stringify(content));
@@ -134,4 +136,138 @@ test('a repository image that does not exist is reported', async (t) => {
   const result = await validateProfilesDirectory(dir);
   assert.equal(result.valid, false);
   assert.ok(result.errors.some((error) => error.includes('does not exist in the repository')));
+});
+
+test('this repository is a public instance', async () => {
+  const result = await validateProfilesDirectory();
+  assert.equal(result.instance, 'public');
+});
+
+test('a profile that asks to be private cannot be committed to a public instance', async (t) => {
+  for (const visibility of ['private', 'restricted']) {
+    const profile = { ...exampleProfile('someone'), visibility };
+    if (visibility === 'restricted') profile.allowedViewers = ['someone@example.com'];
+    const dir = await fixture(t, { files: { 'someone.json': profile }, index: ['someone'] });
+    const result = await validateProfilesDirectory(dir);
+    assert.equal(result.valid, false, `${visibility} should be refused`);
+    assert.ok(
+      result.errors.some((error) => error.includes('is not allowed on a "public" instance')),
+      `${visibility} should explain why`,
+    );
+  }
+});
+
+test('a private instance may hold every visibility mode', async (t) => {
+  const dir = await fixture(t, {
+    files: {
+      'someone.json': exampleProfile('someone'),
+      'quiet.json': { ...exampleProfile('quiet'), visibility: 'private' },
+      'few.json': {
+        ...exampleProfile('few'),
+        visibility: 'restricted',
+        allowedViewers: ['someone@example.com'],
+      },
+    },
+    index: ['someone', 'quiet', 'few'],
+    instance: 'private',
+  });
+  const result = await validateProfilesDirectory(dir, path.dirname(dir), { instance: 'private' });
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.instance, 'private');
+});
+
+test('a public deployment refuses profiles.json claiming to be private', async (t) => {
+  // The guard must not read its own switch out of the files it is guarding:
+  // every profile pull request touches index.json, so if that file could choose
+  // the instance, one line would turn the guard off in the same change that
+  // adds a private profile.
+  const dir = await fixture(t, {
+    files: { 'quiet.json': { ...exampleProfile('quiet'), visibility: 'private' } },
+    index: ['quiet'],
+    instance: 'private',
+  });
+  const result = await validateProfilesDirectory(dir);
+  assert.equal(result.valid, false);
+  assert.equal(result.instance, 'public');
+  assert.ok(result.errors.some((error) => error.includes('but this deployment is "public"')));
+  assert.ok(result.errors.some((error) => error.includes('is not allowed on a "public" instance')));
+});
+
+test('a private deployment refuses an index that still says public', async (t) => {
+  const dir = await fixture(t, {
+    files: { 'someone.json': exampleProfile('someone') },
+    index: ['someone'],
+    instance: 'public',
+  });
+  const result = await validateProfilesDirectory(dir, path.dirname(dir), { instance: 'private' });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes('but this deployment is "private"')));
+});
+
+test('an instance the caller invents is treated as the strictest one', async (t) => {
+  const dir = await fixture(t, {
+    files: { 'quiet.json': { ...exampleProfile('quiet'), visibility: 'private' } },
+    index: ['quiet'],
+  });
+  const result = await validateProfilesDirectory(dir, path.dirname(dir), { instance: 'priv' });
+  assert.equal(result.valid, false);
+  assert.equal(result.instance, 'public');
+  assert.ok(result.errors.some((error) => error.includes('is not allowed on a "public" instance')));
+});
+
+test('an unrecognised instance is reported rather than silently trusted', async (t) => {
+  const dir = await fixture(t, {
+    files: { 'someone.json': { ...exampleProfile('someone'), visibility: 'private' } },
+    index: ['someone'],
+    instance: 'anything-else',
+  });
+  const result = await validateProfilesDirectory(dir);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes('"instance" must be one of')));
+  // It also falls back to the strictest instance instead of publishing.
+  assert.equal(result.instance, 'public');
+  assert.ok(result.errors.some((error) => error.includes('is not allowed on a "public" instance')));
+});
+
+test('a file the validator would skip is reported, because it is published anyway', async (t) => {
+  // Everything in profiles/ is uploaded to the site. A file that is not read is
+  // still served, so "not a profile" has to be an error rather than a silent skip.
+  for (const name of ['_river.json', 'river.json.txt', 'River.json', 'notes.md']) {
+    const dir = await fixture(t, {
+      files: { 'someone.json': exampleProfile('someone'), [name]: { ...exampleProfile('x'), visibility: 'private' } },
+      index: ['someone'],
+    });
+    const result = await validateProfilesDirectory(dir);
+    assert.equal(result.valid, false, `${name} should be refused`);
+    assert.ok(
+      result.errors.some((error) => error.startsWith(`${name}: is not a profile`)),
+      `${name} should say why`,
+    );
+  }
+});
+
+test('the two reserved names are not reported as strays', async (t) => {
+  const dir = await fixture(t, {
+    files: { 'someone.json': exampleProfile('someone') },
+    index: ['someone'],
+  });
+  const result = await validateProfilesDirectory(dir);
+  assert.deepEqual(result.errors, []);
+});
+
+test('a template that asks to be private is reported', async (t) => {
+  const dir = await fixture(t);
+  await writeFile(
+    path.join(dir, '_template.json'),
+    JSON.stringify({ ...exampleProfile('your-chosen-slug'), visibility: 'private' }),
+  );
+  const result = await validateProfilesDirectory(dir);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.startsWith('_template.json: visibility')));
+});
+
+test('the template ships a visibility and an admins placeholder', async () => {
+  const template = JSON.parse(await readFile(new URL('../profiles/_template.json', import.meta.url), 'utf8'));
+  assert.equal(template.visibility, 'public');
+  assert.ok(Array.isArray(template.admins) && template.admins.length > 0);
 });

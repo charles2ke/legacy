@@ -7,7 +7,10 @@ requesting private documents in public — or decline.
 ## Automated checks (must pass)
 
 - [ ] `npm run validate` passes: required fields present, slug valid and unique,
-      slug matches the file name, slug listed in `profiles/index.json`.
+      slug matches the file name, slug listed in `profiles/index.json`, and the
+      profile is `public` — this repository publishes everything it holds.
+- [ ] `npm run codeowners:check` passes, so `.github/CODEOWNERS` still matches the
+      `admins` named in the profiles.
 - [ ] `npm test` passes.
 - [ ] Only files under `profiles/` (and any image the profile uses) are changed, or
       site/tooling changes are reviewed separately.
@@ -18,6 +21,12 @@ requesting private documents in public — or decline.
       appropriate authorisation to publish it about someone else.
 - [ ] Nothing in the pull request asks for or exposes private evidence.
 - [ ] Media (photos, recordings) appear to be the contributor's to share.
+- [ ] The contributor understands this is a public archive. If they are asking for
+      a profile only certain people can see, point them at
+      [VISIBILITY.md](VISIBILITY.md): it cannot be done here, and merging it with a
+      `private` label would be worse than declining.
+- [ ] `admins`, if present, names people plausibly entitled to control the profile.
+      A change to someone else's `admins` list deserves an explanation.
 
 ## Private information
 
