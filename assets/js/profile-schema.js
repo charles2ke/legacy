@@ -254,6 +254,7 @@ export function validateProfile(profile) {
 export function validateCollection(entries) {
   const errors = [];
   const seen = new Set();
+  const knownSlugs = new Set(entries.map((entry) => entry.slug));
 
   for (const entry of entries) {
     const result = validateProfile(entry.profile);
@@ -267,6 +268,13 @@ export function validateCollection(entries) {
       errors.push(`${entry.slug}: duplicate slug`);
     }
     seen.add(entry.slug);
+    if (Array.isArray(entry.profile?.family)) {
+      entry.profile.family.forEach((item, index) => {
+        if (typeof item?.slug === 'string' && SLUG_PATTERN.test(item.slug) && !knownSlugs.has(item.slug)) {
+          errors.push(`${entry.slug}: family[${index}].slug: must be the slug of a profile in this archive`);
+        }
+      });
+    }
   }
 
   return { valid: errors.length === 0, errors };

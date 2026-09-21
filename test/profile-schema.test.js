@@ -173,3 +173,19 @@ test('family relations reject unknown types, bad slugs and extra fields', () => 
   assert.ok(result.errors.some((error) => error === 'family[4].birthday: is not an allowed field'));
   assert.ok(result.errors.some((error) => error === 'family[5]: must be an object'));
 });
+
+test('a collection rejects family slugs that are not present in the archive', () => {
+  const result = validateCollection([
+    {
+      slug: 'river-song',
+      profile: {
+        ...validProfile,
+        family: [{ relation: 'parent', name: 'Missing Profile', slug: 'missing-profile' }],
+      },
+    },
+  ]);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.includes(
+    'river-song: family[0].slug: must be the slug of a profile in this archive',
+  ));
+});
