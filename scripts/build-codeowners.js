@@ -36,9 +36,9 @@ export const MAINTAINERS = ['charles2ke'];
 const FOOTER = [
   '',
   '# Who may change who owns what: this file, the workflows that check it and the',
-  '# script that writes it are owned by the maintainers, so the rules above cannot',
+  '# scripts that manage them are owned by the maintainers, so the rules above cannot',
   '# be weakened without them.',
-  ...['/.github/', '/scripts/build-codeowners.js'].map(
+  ...['/.github/', '/scripts/'].map(
     (target) => `${target} ${MAINTAINERS.map((maintainer) => `@${maintainer}`).join(' ')}`,
   ),
 ];
