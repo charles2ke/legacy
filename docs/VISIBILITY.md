@@ -86,7 +86,7 @@ script that writes the file:
 
 ```text
 /.github/ @charles2ke
-/scripts/build-codeowners.js @charles2ke
+/scripts/ @charles2ke
 ```
 
 Without it a pull request could delete the profile rules, or change the script

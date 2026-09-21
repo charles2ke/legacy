@@ -69,7 +69,7 @@ test('the maintainers own this file and the script that writes it', () => {
   const owners = MAINTAINERS.map((maintainer) => `@${maintainer}`).join(' ');
   assert.ok(MAINTAINERS.length > 0);
   assert.match(output, new RegExp(`^/\\.github/ ${owners}$`, 'm'));
-  assert.match(output, new RegExp(`^/scripts/build-codeowners\\.js ${owners}$`, 'm'));
+  assert.match(output, new RegExp(`^/scripts/ ${owners}$`, 'm'));
   // Last matching rule wins, so they come after the profile rules.
   assert.ok(output.indexOf('/profiles/x.json') < output.indexOf('/.github/'));
 });
@@ -92,4 +92,5 @@ test('the committed CODEOWNERS says it is generated', async () => {
 test('the committed CODEOWNERS protects itself', async () => {
   const file = await readFile(new URL('../.github/CODEOWNERS', import.meta.url), 'utf8');
   assert.match(file, /^\/\.github\/ @/m);
+  assert.match(file, /^\/scripts\/ @/m);
 });

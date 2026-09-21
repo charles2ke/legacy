@@ -9,7 +9,7 @@
 /profiles/example-river-okonkwo.json @charles2ke
 
 # Who may change who owns what: this file, the workflows that check it and the
-# script that writes it are owned by the maintainers, so the rules above cannot
+# scripts that manage them are owned by the maintainers, so the rules above cannot
 # be weakened without them.
 /.github/ @charles2ke
-/scripts/build-codeowners.js @charles2ke
+/scripts/ @charles2ke
