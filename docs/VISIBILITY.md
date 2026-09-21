@@ -80,6 +80,20 @@ profile, and CI fails if the committed file has drifted from the profiles:
 /profiles/example-river-okonkwo.json @charles2ke
 ```
 
+The generator also writes a fixed rule giving the maintainers ownership of
+`.github/` — CODEOWNERS itself and the workflows that check it — and of the
+script that writes the file:
+
+```text
+/.github/ @charles2ke
+/scripts/ @charles2ke
+```
+
+Without it a pull request could delete the profile rules, or change the script
+that produces them, with no profile owner having to approve. The rules come last
+because the last matching rule wins, and `npm run codeowners:check` (run by the
+test suite) fails if the committed file has lost them.
+
 > **Maintainer configuration needed.** CODEOWNERS has no effect on its own. Until
 > a maintainer enables branch protection on the default branch with **Require a
 > pull request before merging** and **Require review from Code Owners**, the file

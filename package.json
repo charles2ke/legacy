@@ -13,6 +13,8 @@
     "moderator:create": "node scripts/bootstrap-moderator.js",
     "import:profiles": "node scripts/import-profiles.js",
     "validate": "node scripts/validate-profiles.js",
+    "codeowners": "node scripts/build-codeowners.js",
+    "codeowners:check": "node scripts/build-codeowners.js --check",
     "test": "NODE_ENV=test node --test test/*.test.js",
     "test:e2e": "node test/e2e/legacy-flow.mjs",
     "build": "npm run validate && node --check src/app.js && node --check assets/js/app.js && node --check assets/js/site.js && node --check test/e2e/legacy-flow.mjs"

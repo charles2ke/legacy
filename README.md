@@ -126,6 +126,29 @@ fictional label. The latest `main` additions are also supported: a longer
 The shared schema validates their sizes, relationship vocabulary, related
 profile slugs and URL schemes before any draft can be saved.
 
+### Profile length limits
+
+| Field | Maximum characters |
+| --- | --- |
+| `slug` | 60 |
+| `name` | 80 |
+| `introduction` | 280 |
+| `story` | 8000 |
+| `autobiography` | 20000 |
+| `carryForward` | 1000 |
+| each `values` line | 160 |
+| `work[].title` | 120 |
+| `work[].description` | 600 |
+| `links[].label` | 80 |
+| each `memories` entry | 1000 |
+| `family[].name` | 80 |
+| `family[].note` | 200 |
+| `image.alt` | 300 |
+| committed `image.src` path | 500 |
+| each `admins` entry | 39 |
+| each `allowedViewers` entry | 254 |
+| any URL | 500 |
+
 The retained `profiles/example-river-okonkwo.json` is explicitly fictional. It
 is not inserted into the database automatically. See [CONTRIBUTING.md](CONTRIBUTING.md)
 for the provenance-aware import command and consent cautions.
