@@ -6,6 +6,9 @@
   "type": "module",
   "scripts": {
     "validate": "node scripts/validate-profiles.js",
+    "codeowners": "node scripts/build-codeowners.js",
+    "codeowners:check": "node scripts/build-codeowners.js --check",
+    "access-policies": "node scripts/build-access-policies.js",
     "test": "node --test"
   },
   "license": "MIT"

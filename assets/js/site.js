@@ -2,7 +2,7 @@
 // with textContent or as attributes on elements we create, so submitted HTML or
 // scripts are never executed.
 
-import { validateProfile } from './profile-schema.js';
+import { isPublishableOn, normaliseInstance, validateProfile } from './profile-schema.js';
 import {
   profileDataUrl,
   profilePageUrl,
@@ -30,16 +30,33 @@ async function fetchJson(url) {
   return response.json();
 }
 
-async function loadProfiles() {
+/**
+ * Reads the published slugs and the kind of instance this deployment is.
+ * An unreadable or unrecognised setting falls back to "public", the strictest
+ * one, so a failed request can never cause more to be shown.
+ */
+async function loadIndex() {
   const index = await fetchJson(indexUrl);
-  const slugs = Array.isArray(index?.profiles) ? index.profiles : [];
+  return {
+    instance: normaliseInstance(index?.instance),
+    slugs: Array.isArray(index?.profiles) ? index.profiles : [],
+  };
+}
+
+async function loadProfiles() {
+  const { instance, slugs } = await loadIndex();
   const results = await Promise.all(
     slugs.map(async (slug) => {
       const url = profileDataUrl(slug, document.baseURI);
       if (!url) return null;
       try {
         const profile = await fetchJson(url);
-        return validateProfile(profile).valid ? profile : null;
+        if (!validateProfile(profile).valid) return null;
+        // A profile this instance may not publish is never listed. On a public
+        // instance nothing should reach here, because validation refuses to let
+        // such a file be committed; on a private instance the host in front of
+        // the site is what actually keeps people out.
+        return isPublishableOn(profile, instance) ? profile : null;
       } catch {
         return null;
       }
@@ -178,10 +195,22 @@ async function initProfilePage(container) {
     return;
   }
   setStatus(container, 'Loading profile…');
+
+  let instance;
+  try {
+    ({ instance } = await loadIndex());
+  } catch {
+    instance = normaliseInstance(undefined);
+  }
+
   try {
     const profile = await fetchJson(url);
     if (!validateProfile(profile).valid) {
       setStatus(container, 'This profile could not be displayed because its file is not valid.');
+      return;
+    }
+    if (!isPublishableOn(profile, instance)) {
+      setStatus(container, 'This profile is not published on this site.');
       return;
     }
     renderProfile(container, profile);

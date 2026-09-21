@@ -7,8 +7,12 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import {
+  DEFAULT_INSTANCE,
   IMAGE_PATH_PREFIX,
+  INSTANCE_MODES,
   SLUG_PATTERN,
+  isPublishableOn,
+  profileVisibility,
   validateCollection,
   validateProfile,
 } from '../assets/js/profile-schema.js';
@@ -37,7 +41,26 @@ export async function validateProfilesDirectory(dir = profilesDir, root = path.d
     }
   }
 
-  errors.push(...validateCollection(entries).errors);
+  let index;
+  try {
+    index = await readJson(path.join(dir, 'index.json'));
+  } catch (error) {
+    errors.push(`index.json: is not valid JSON (${error.message})`);
+  }
+
+  // What kind of deployment these files belong to. Absent means "public",
+  // the strictest setting, so forgetting it can never widen publication.
+  let instance = DEFAULT_INSTANCE;
+  const declaredInstance = index && typeof index === 'object' ? index.instance : undefined;
+  if (declaredInstance !== undefined) {
+    if (typeof declaredInstance === 'string' && INSTANCE_MODES.includes(declaredInstance)) {
+      instance = declaredInstance;
+    } else {
+      errors.push(`index.json: "instance" must be one of ${INSTANCE_MODES.map((mode) => `"${mode}"`).join(', ')}`);
+    }
+  }
+
+  errors.push(...validateCollection(entries, { instance }).errors);
 
   // An image committed to the repository must actually be there.
   for (const entry of entries) {
@@ -49,13 +72,6 @@ export async function validateProfilesDirectory(dir = profilesDir, root = path.d
         errors.push(`${entry.slug}: image.src "${src}" does not exist in the repository`);
       }
     }
-  }
-
-  let index;
-  try {
-    index = await readJson(path.join(dir, 'index.json'));
-  } catch (error) {
-    errors.push(`index.json: is not valid JSON (${error.message})`);
   }
 
   if (index !== undefined) {
@@ -84,17 +100,24 @@ export async function validateProfilesDirectory(dir = profilesDir, root = path.d
     }
   }
 
-  // The template itself must stay a valid profile, so copying it is a safe start.
+  // The template itself must stay a valid profile, so copying it is a safe start,
+  // and copying it must not produce a profile this instance may not publish.
   try {
     const template = await readJson(path.join(dir, '_template.json'));
-    for (const error of validateProfile(template).errors) {
+    const templateResult = validateProfile(template);
+    for (const error of templateResult.errors) {
       errors.push(`_template.json: ${error}`);
+    }
+    if (templateResult.valid && !isPublishableOn(template, instance)) {
+      errors.push(
+        `_template.json: visibility "${profileVisibility(template)}" is not allowed on a "${instance}" instance`,
+      );
     }
   } catch (error) {
     errors.push(`_template.json: is not valid JSON (${error.message})`);
   }
 
-  return { valid: errors.length === 0, errors, count: entries.length };
+  return { valid: errors.length === 0, errors, count: entries.length, instance };
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -105,5 +128,5 @@ if (isMain) {
     for (const error of result.errors) console.error(`  - ${error}`);
     process.exit(1);
   }
-  console.log(`Profile validation passed (${result.count} profile(s)).`);
+  console.log(`Profile validation passed (${result.count} profile(s), "${result.instance}" instance).`);
 }

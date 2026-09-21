@@ -4,6 +4,10 @@
   "introduction": "One or two sentences introducing yourself in your own voice.",
   "story": "Your story. Write as much or as little as you like. Blank lines separate paragraphs.\n\nThis is a second paragraph.",
   "carryForward": "What you hope other people carry forward.",
+  "visibility": "public",
+  "admins": [
+    "your-github-username"
+  ],
   "values": [
     "Something you believe in",
     "Another thing that matters to you"

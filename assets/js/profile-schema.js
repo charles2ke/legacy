@@ -15,7 +15,45 @@ export const MAX_LENGTHS = {
   imageAlt: 300,
   carryForward: 1000,
   url: 500,
+  admin: 39,
+  allowedViewer: 254,
 };
+
+// How widely a profile may be published. Declared in the profile, but enforced
+// where it can actually be enforced: by the publication guard in
+// scripts/validate-profiles.js and by the host serving a private instance.
+// It is never a browser-side access control. See docs/VISIBILITY.md.
+export const VISIBILITY_MODES = ['public', 'private', 'restricted'];
+
+// Profiles without a "visibility" field keep today's behaviour.
+export const DEFAULT_VISIBILITY = 'public';
+
+// What kind of deployment this copy of the site is. A public instance (this
+// repository) may only hold public profiles; a private instance may hold all of
+// them, because access is enforced by repository permissions and by the host.
+export const INSTANCE_MODES = ['public', 'private'];
+
+// Assume the strictest instance when nothing says otherwise, so a missing or
+// unreadable setting can never widen what is published.
+export const DEFAULT_INSTANCE = 'public';
+
+// GitHub usernames: alphanumeric with single hyphens, up to 39 characters.
+export const GITHUB_USERNAME_PATTERN = /^[A-Za-z0-9](?:-?[A-Za-z0-9])*$/;
+
+// Admins own a profile and may change its visibility; kept small on purpose.
+export const MAX_ADMINS = 10;
+
+// Cloudflare Access allows up to 1000 email addresses in one policy rule, which
+// is the tightest documented limit among the hosts described in
+// docs/VISIBILITY.md.
+export const MAX_ALLOWED_VIEWERS = 1000;
+
+// Identifiers an authenticating host can match on. Each alternative uses a
+// delimiter that cannot appear in the surrounding character classes, so these
+// patterns match in linear time.
+const VIEWER_EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
+const VIEWER_DOMAIN_PATTERN = /^@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
+const VIEWER_GROUP_PATTERN = /^group:[A-Za-z0-9][A-Za-z0-9 ._-]*$/;
 
 // Only these URL schemes are allowed anywhere in a profile.
 export const ALLOWED_URL_SCHEMES = ['https:', 'http:', 'mailto:'];
@@ -39,6 +77,9 @@ const ALLOWED_TOP_LEVEL_FIELDS = [
   'image',
   'carryForward',
   'fictional',
+  'visibility',
+  'admins',
+  'allowedViewers',
 ];
 
 const REQUIRED_TOP_LEVEL_FIELDS = ['slug', 'name', 'introduction', 'story', 'carryForward'];
@@ -77,6 +118,54 @@ export function isSafeImageSrc(value) {
     return /^[A-Za-z0-9._/-]+$/.test(trimmed);
   }
   return isSafeUrl(trimmed, { schemes: ALLOWED_IMAGE_SCHEMES });
+}
+
+/**
+ * The visibility a profile asks for. Returns the raw value when it is not one
+ * of VISIBILITY_MODES so that an invalid or hostile value can never be mistaken
+ * for "public" by the callers below.
+ */
+export function profileVisibility(profile) {
+  const value = profile?.visibility;
+  return value === undefined || value === null ? DEFAULT_VISIBILITY : value;
+}
+
+/**
+ * True when a profile may be published by a deployment of the given kind. A
+ * public instance publishes public profiles only; a private instance may hold
+ * every mode, because the repository and the host in front of it decide who
+ * gets to read anything at all.
+ *
+ * This is a publication rule, not an access control: on a public instance the
+ * browser has already downloaded the file by the time this runs.
+ */
+export function isPublishableOn(profile, instance = DEFAULT_INSTANCE) {
+  const visibility = profileVisibility(profile);
+  if (!VISIBILITY_MODES.includes(visibility)) return false;
+  if (instance === 'private') return true;
+  return visibility === DEFAULT_VISIBILITY;
+}
+
+/** Normalises an instance name, falling back to the strictest one. */
+export function normaliseInstance(value) {
+  return typeof value === 'string' && INSTANCE_MODES.includes(value) ? value : DEFAULT_INSTANCE;
+}
+
+/**
+ * True when `value` is an identifier an authenticating host can match a signed
+ * in visitor against: an email address, an `@domain` covering everyone with an
+ * address there, or `group:<name>` for an identity provider group.
+ */
+export function isAllowedViewer(value) {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (trimmed === '' || trimmed.length > MAX_LENGTHS.allowedViewer) return false;
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) return false;
+  return (
+    VIEWER_EMAIL_PATTERN.test(trimmed) ||
+    VIEWER_DOMAIN_PATTERN.test(trimmed) ||
+    VIEWER_GROUP_PATTERN.test(trimmed)
+  );
 }
 
 function checkText(errors, path, value, maxLength, { required = false } = {}) {
@@ -194,6 +283,45 @@ export function validateProfile(profile) {
     errors.push('fictional: must be true or false');
   }
 
+  const visibility = profileVisibility(profile);
+  if (profile.visibility !== undefined && !VISIBILITY_MODES.includes(visibility)) {
+    errors.push(`visibility: must be one of ${VISIBILITY_MODES.map((mode) => `"${mode}"`).join(', ')}`);
+  }
+
+  if (profile.admins !== undefined && checkArray(errors, 'admins', profile.admins, MAX_ADMINS)) {
+    profile.admins.forEach((admin, index) => {
+      if (typeof admin !== 'string' || !GITHUB_USERNAME_PATTERN.test(admin) || admin.length > MAX_LENGTHS.admin) {
+        errors.push(`admins[${index}]: must be a GitHub username, without the leading "@"`);
+      }
+    });
+  }
+
+  // An allowlist only means something where a host checks it, and it is itself
+  // personal data, so it may exist only on a profile that asks to be restricted.
+  if (visibility === 'restricted') {
+    if (profile.allowedViewers === undefined) {
+      errors.push('allowedViewers: is required when visibility is "restricted"');
+    }
+  } else if (profile.allowedViewers !== undefined) {
+    errors.push('allowedViewers: is only allowed when visibility is "restricted"');
+  }
+
+  if (
+    profile.allowedViewers !== undefined &&
+    checkArray(errors, 'allowedViewers', profile.allowedViewers, MAX_ALLOWED_VIEWERS)
+  ) {
+    if (profile.allowedViewers.length === 0) {
+      errors.push('allowedViewers: must name at least one viewer');
+    }
+    profile.allowedViewers.forEach((viewer, index) => {
+      if (!isAllowedViewer(viewer)) {
+        errors.push(
+          `allowedViewers[${index}]: must be an email address, "@example.com" for a whole domain, or "group:<name>"`,
+        );
+      }
+    });
+  }
+
   return { valid: errors.length === 0, errors };
 }
 
@@ -202,9 +330,13 @@ export function validateProfile(profile) {
  * each profile's slug matches the file it lives in. The uniqueness and file
  * name checks also cover callers that build entries from something other than
  * a directory listing.
+ *
+ * `instance` says what kind of deployment these files belong to. On a public
+ * instance a profile that asks to be private or restricted is an error, not a
+ * hidden page: committing it would publish it, whatever it says about itself.
  * @param {{ slug: string, profile: unknown }[]} entries
  */
-export function validateCollection(entries) {
+export function validateCollection(entries, { instance = DEFAULT_INSTANCE } = {}) {
   const errors = [];
   const seen = new Set();
 
@@ -215,6 +347,14 @@ export function validateCollection(entries) {
     }
     if (result.valid && entry.profile.slug !== entry.slug) {
       errors.push(`${entry.slug}: slug "${entry.profile.slug}" must match the file name`);
+    }
+    if (result.valid && !isPublishableOn(entry.profile, instance)) {
+      errors.push(
+        `${entry.slug}: visibility "${profileVisibility(entry.profile)}" is not allowed on a "${instance}" ` +
+          'instance, because everything committed here is published. Remove ' +
+          `profiles/${entry.slug}.json and its entry in profiles/index.json, and keep the profile in a ` +
+          'private instance instead (see docs/VISIBILITY.md).',
+      );
     }
     if (seen.has(entry.slug)) {
       errors.push(`${entry.slug}: duplicate slug`);
