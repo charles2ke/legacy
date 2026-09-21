@@ -27,6 +27,22 @@ const HEADER = [
   '# "Require review from Code Owners". See docs/VISIBILITY.md.',
 ];
 
+// The maintainers who own this file and the machinery that writes it. Without
+// these rules a pull request could simply delete the profile rules below — or
+// change the script that produces them — and no profile owner would have to
+// approve it. They are written last because the last matching rule wins.
+export const MAINTAINERS = ['charles2ke'];
+
+const FOOTER = [
+  '',
+  '# Who may change who owns what: this file, the workflows that check it and the',
+  '# script that writes it are owned by the maintainers, so the rules above cannot',
+  '# be weakened without them.',
+  ...['/.github/', '/scripts/build-codeowners.js'].map(
+    (target) => `${target} ${MAINTAINERS.map((maintainer) => `@${maintainer}`).join(' ')}`,
+  ),
+];
+
 /** Admins of one profile, de-duplicated case insensitively, order preserved. */
 function adminsOf(profile) {
   const admins = Array.isArray(profile?.admins) ? profile.admins : [];
@@ -68,6 +84,7 @@ export function renderCodeowners(entries) {
   for (const entry of owned) {
     lines.push(`/profiles/${entry.slug}.json ${entry.admins.map((admin) => `@${admin}`).join(' ')}`);
   }
+  lines.push(...FOOTER);
   return `${lines.join('\n')}\n`;
 }
 
