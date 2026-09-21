@@ -17,6 +17,12 @@ Do not include passwords, private addresses, government identifiers, private
 contact details, or evidence containing sensitive information. Identity is not
 verified by the platform.
 
+Optional `autobiography`, `links`, and `family` fields follow the shared schema.
+Only link to public pages you are comfortable publishing. Family entries must
+have the named person's permission, use a supported relationship, and contain
+no birth dates, addresses, health details or other sensitive notes. A related
+profile slug is optional and must name an existing archive profile.
+
 ## Importing the old JSON archive
 
 The import command validates every indexed JSON file and requires a provenance

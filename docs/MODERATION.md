@@ -31,6 +31,11 @@ minimal.
 
 ## Moderator accounts
 
+Pay particular attention to long `autobiography` text and `family` entries,
+where private details about the owner or third parties can be easy to miss.
+Family entries require permission and must remain limited to a public name,
+supported relationship, optional approved-profile slug and short neutral note.
+
 Moderators are created only with `npm run moderator:create` using explicit
 environment variables. There are no default credentials, public registration
 route or client-controlled role fields. Restrict production shell and database

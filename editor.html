@@ -12,9 +12,20 @@
         </fieldset>
         <fieldset><legend>Your story</legend>
           <label for="story">Story</label><textarea id="story" name="story" maxlength="8000" rows="10" required></textarea>
+          <label for="autobiography">Longer autobiography (optional)</label><textarea id="autobiography" name="autobiography" maxlength="20000" rows="12"></textarea>
           <label for="values">Values (one per line, up to 10)</label><textarea id="values" name="values"></textarea>
           <label for="memories">Memories (one per line, up to 20)</label><textarea id="memories" name="memories"></textarea>
           <label for="carryForward">What should readers carry forward?</label><textarea id="carryForward" name="carryForward" maxlength="1000" required></textarea>
+        </fieldset>
+        <fieldset><legend>Optional public link</legend>
+          <label for="linkLabel">Link label</label><input id="linkLabel" name="linkLabel" maxlength="80" />
+          <label for="linkUrl">Link URL (http, https or mailto)</label><input id="linkUrl" name="linkUrl" type="url" maxlength="500" />
+        </fieldset>
+        <fieldset><legend>Optional family relationship</legend><p>Include another person only with permission. Do not include private or sensitive details.</p>
+          <label for="familyRelation">Relationship</label><select id="familyRelation" name="familyRelation"><option value="parent">Parent</option><option value="child">Child</option><option value="sibling">Sibling</option><option value="partner">Partner</option><option value="grandparent">Grandparent</option><option value="grandchild">Grandchild</option><option value="relative">Relative</option><option value="chosen-family">Chosen family</option></select>
+          <label for="familyName">Public name</label><input id="familyName" name="familyName" maxlength="80" />
+          <label for="familySlug">Existing Legacy profile address (optional)</label><input id="familySlug" name="familySlug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxlength="60" />
+          <label for="familyNote">Short neutral note (optional)</label><input id="familyNote" name="familyNote" maxlength="200" />
         </fieldset>
         <fieldset><legend>Optional work link</legend>
           <label for="workTitle">Title</label><input id="workTitle" name="workTitle" maxlength="120" />
@@ -33,4 +44,3 @@
     </main>
   </body>
 </html>
-

@@ -46,6 +46,8 @@ function profileFromForm(form) {
   const memories = lines(data.get('memories'));
   if (values.length) profile.values = values;
   if (memories.length) profile.memories = memories;
+  const autobiography = data.get('autobiography').trim();
+  if (autobiography) profile.autobiography = autobiography;
   const workTitle = data.get('workTitle').trim();
   if (workTitle) {
     profile.work = [
@@ -53,6 +55,20 @@ function profileFromForm(form) {
         title: workTitle,
         ...(data.get('workDescription').trim() ? { description: data.get('workDescription').trim() } : {}),
         ...(data.get('workUrl').trim() ? { url: data.get('workUrl').trim() } : {}),
+      },
+    ];
+  }
+  const linkLabel = data.get('linkLabel').trim();
+  const linkUrl = data.get('linkUrl').trim();
+  if (linkLabel || linkUrl) profile.links = [{ label: linkLabel, url: linkUrl }];
+  const familyName = data.get('familyName').trim();
+  if (familyName) {
+    profile.family = [
+      {
+        relation: data.get('familyRelation'),
+        name: familyName,
+        ...(data.get('familySlug').trim() ? { slug: data.get('familySlug').trim() } : {}),
+        ...(data.get('familyNote').trim() ? { note: data.get('familyNote').trim() } : {}),
       },
     ];
   }
@@ -69,9 +85,16 @@ function populateEditor(form, profile) {
   }
   form.elements.values.value = (profile.values || []).join('\n');
   form.elements.memories.value = (profile.memories || []).join('\n');
+  form.elements.autobiography.value = profile.autobiography || '';
   form.elements.workTitle.value = profile.work?.[0]?.title || '';
   form.elements.workDescription.value = profile.work?.[0]?.description || '';
   form.elements.workUrl.value = profile.work?.[0]?.url || '';
+  form.elements.linkLabel.value = profile.links?.[0]?.label || '';
+  form.elements.linkUrl.value = profile.links?.[0]?.url || '';
+  form.elements.familyRelation.value = profile.family?.[0]?.relation || 'parent';
+  form.elements.familyName.value = profile.family?.[0]?.name || '';
+  form.elements.familySlug.value = profile.family?.[0]?.slug || '';
+  form.elements.familyNote.value = profile.family?.[0]?.note || '';
   form.elements.imageSrc.value = profile.image?.src || '';
   form.elements.imageAlt.value = profile.image?.alt || '';
   form.elements.fictional.checked = profile.fictional === true;

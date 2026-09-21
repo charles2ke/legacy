@@ -119,6 +119,13 @@ revision remains separate from later edits, so a pending or rejected edit never
 leaks publicly. Owners can unpublish or delete their profiles. Public list,
 search, slug, and ID endpoints query only `approved_revision_id`.
 
+Profiles retain the original required fields (`slug`, `name`, `introduction`,
+`story`, and `carryForward`) plus optional values, work, memories, image and
+fictional label. The latest `main` additions are also supported: a longer
+`autobiography`, general `links`, and consent-sensitive `family` relationships.
+The shared schema validates their sizes, relationship vocabulary, related
+profile slugs and URL schemes before any draft can be saved.
+
 The retained `profiles/example-river-okonkwo.json` is explicitly fictional. It
 is not inserted into the database automatically. See [CONTRIBUTING.md](CONTRIBUTING.md)
 for the provenance-aware import command and consent cautions.

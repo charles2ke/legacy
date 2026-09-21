@@ -20,6 +20,10 @@ test('optional fields are accepted when present', () => {
     ...validProfile,
     values: ['Kindness'],
     work: [{ title: 'A tool', description: 'Why it mattered.', url: 'https://example.com' }],
+    links: [
+      { label: 'Blog', url: 'https://example.com/blog' },
+      { label: 'Photos', url: 'https://example.com/photos' },
+    ],
     memories: ['An ordinary afternoon.'],
     image: { src: 'https://example.com/photo.jpg', alt: 'A photo of a workshop.' },
     fictional: true,
@@ -140,4 +144,128 @@ test('a collection rejects duplicate slugs and file name mismatches', () => {
   const mismatch = validateCollection([{ slug: 'other-name', profile: validProfile }]);
   assert.equal(mismatch.valid, false);
   assert.ok(mismatch.errors.some((error) => error.includes('must match the file name')));
+});
+
+test('family relations are accepted with a known relation, a name and an optional slug', () => {
+  const result = validateProfile({
+    ...validProfile,
+    family: [
+      { relation: 'parent', name: 'Ada Okonkwo', slug: 'ada-okonkwo', note: 'Ran the repair shop.' },
+      { relation: 'chosen-family', name: 'Tobi' },
+    ],
+  });
+  assert.deepEqual(result, { valid: true, errors: [] });
+});
+
+test('family relations reject unknown types, bad slugs and extra fields', () => {
+  const result = validateProfile({
+    ...validProfile,
+    family: [
+      { relation: 'colleague', name: 'Someone' },
+      { relation: 'parent' },
+      { relation: 'sibling', name: 'Someone', slug: 'Not A Slug' },
+      { relation: 'partner', name: 'Someone', slug: 'river-song' },
+      { relation: 'child', name: 'Someone', birthday: '1970-01-01' },
+      'not an object',
+    ],
+  });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.startsWith('family[0].relation:')));
+  assert.ok(result.errors.some((error) => error === 'family[1].name: is required'));
+  assert.ok(result.errors.some((error) => error.startsWith('family[2].slug:')));
+  assert.ok(result.errors.some((error) => error.startsWith('family[3].slug:')));
+  assert.ok(result.errors.some((error) => error === 'family[4].birthday: is not an allowed field'));
+  assert.ok(result.errors.some((error) => error === 'family[5]: must be an object'));
+});
+
+test('a collection accepts present family slugs and rejects missing ones', () => {
+  const relativeProfile = {
+    ...validProfile,
+    slug: 'relative-profile',
+    family: [{ relation: 'child', name: 'River Song', slug: 'river-song' }],
+  };
+  const valid = validateCollection([
+    { slug: 'river-song', profile: validProfile },
+    { slug: 'relative-profile', profile: relativeProfile },
+  ]);
+  assert.equal(valid.valid, true);
+
+  const selfReference = validateCollection([
+    {
+      slug: 'river-song',
+      profile: {
+        ...validProfile,
+        family: [{ relation: 'parent', name: 'River Song', slug: 'river-song' }],
+      },
+    },
+  ]);
+  assert.ok(selfReference.errors.includes(
+    "river-song: family[0].slug: must not be this profile's own slug",
+  ));
+
+  const result = validateCollection([
+    {
+      slug: 'river-song',
+      profile: {
+        ...validProfile,
+        family: [{ relation: 'parent', name: 'Missing Profile', slug: 'missing-profile' }],
+      },
+    },
+  ]);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.includes(
+    'river-song: family[0].slug: must be the slug of a profile in this archive',
+  ));
+});
+
+test('autobiography is optional, and rejected when empty, oversized or not a string', () => {
+  assert.deepEqual(validateProfile(validProfile), { valid: true, errors: [] });
+
+  const present = validateProfile({
+    ...validProfile,
+    autobiography: 'A longer account.\n\nWith two paragraphs.',
+  });
+  assert.deepEqual(present.errors, []);
+
+  for (const value of [null, 42, ['a'], { text: 'a' }]) {
+    const result = validateProfile({ ...validProfile, autobiography: value });
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes('autobiography: must be a string'));
+  }
+
+  const empty = validateProfile({ ...validProfile, autobiography: '   ' });
+  assert.equal(empty.valid, false);
+  assert.ok(empty.errors.includes('autobiography: must not be empty'));
+
+  const oversized = validateProfile({ ...validProfile, autobiography: 'a'.repeat(20001) });
+  assert.equal(oversized.valid, false);
+  assert.ok(oversized.errors.includes('autobiography: must be 20000 characters or fewer'));
+
+  const atLimit = validateProfile({ ...validProfile, autobiography: 'a'.repeat(20000) });
+  assert.deepEqual(atLimit.errors, []);
+});
+
+test('links must have a label and a safe URL', () => {
+  const cases = [
+    [{ url: 'https://example.com' }, 'links[0].label:'],
+    [{ label: 'Blog' }, 'links[0].url:'],
+    [{ label: 'Blog', url: 'javascript:alert(1)' }, 'links[0].url:'],
+    [{ label: 'Blog', url: 'https://example.com', handle: '@me' }, 'links[0].handle:'],
+    ['https://example.com', 'links[0]:'],
+  ];
+  for (const [link, prefix] of cases) {
+    const result = validateProfile({ ...validProfile, links: [link] });
+    assert.equal(result.valid, false, `${JSON.stringify(link)} should be rejected`);
+    assert.ok(result.errors.some((error) => error.startsWith(prefix)), result.errors.join(', '));
+  }
+});
+
+test('links are limited to ten entries', () => {
+  const links = Array.from({ length: 11 }, (_, index) => ({
+    label: `Link ${index}`,
+    url: 'https://example.com',
+  }));
+  const result = validateProfile({ ...validProfile, links });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.startsWith('links:')));
 });

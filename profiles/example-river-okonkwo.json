@@ -20,9 +20,30 @@
       "description": "A fictional collection of plain-language answers to questions people were afraid to ask."
     }
   ],
+  "links": [
+    {
+      "label": "Blog (example)",
+      "url": "https://example.com/river-notebook"
+    },
+    {
+      "label": "Photos (example)",
+      "url": "https://example.com/river-photos"
+    }
+  ],
   "memories": [
     "Reading nights ran late every winter, and nobody ever admitted to being the last one out.",
     "A soldering iron with tape on the handle that outlasted three laptops."
+  ],
+  "family": [
+    {
+      "relation": "parent",
+      "name": "Ada Okonkwo (fictional)",
+      "note": "Ran the repair shop where River learned to solder."
+    },
+    {
+      "relation": "sibling",
+      "name": "Tobi Okonkwo (fictional)"
+    }
   ],
   "fictional": true
 }
