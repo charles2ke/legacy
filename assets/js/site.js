@@ -116,6 +116,13 @@ function renderProfile(container, profile) {
   for (const paragraph of toParagraphs(profile.story)) story.append(el('p', paragraph));
   parts.push(section('My story', story));
 
+  const autobiography = toParagraphs(profile.autobiography);
+  if (autobiography.length > 0) {
+    const longForm = el('div');
+    for (const paragraph of autobiography) longForm.append(el('p', paragraph));
+    parts.push(section('My autobiography', longForm));
+  }
+
   if (Array.isArray(profile.values) && profile.values.length > 0) {
     const list = el('ul');
     for (const value of profile.values) list.append(el('li', value));

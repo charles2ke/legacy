@@ -88,6 +88,12 @@ test('family relations are labelled and only link to valid profile slugs', () =>
   assert.deepEqual(safeFamily(undefined), []);
 });
 
+test('an autobiography is split into paragraphs of plain text', () => {
+  assert.deepEqual(toParagraphs('Early years.\n\nLater years.'), ['Early years.', 'Later years.']);
+  assert.deepEqual(toParagraphs('<b>Not markup</b>'), ['<b>Not markup</b>']);
+  assert.deepEqual(toParagraphs(undefined), []);
+});
+
 test('safeLinks keeps labelled links and drops unsafe or incomplete ones', () => {
   assert.deepEqual(
     safeLinks([
