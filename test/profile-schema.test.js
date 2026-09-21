@@ -20,6 +20,10 @@ test('optional fields are accepted when present', () => {
     ...validProfile,
     values: ['Kindness'],
     work: [{ title: 'A tool', description: 'Why it mattered.', url: 'https://example.com' }],
+    links: [
+      { label: 'Blog', url: 'https://example.com/blog' },
+      { label: 'Photos', url: 'https://example.com/photos' },
+    ],
     memories: ['An ordinary afternoon.'],
     image: { src: 'https://example.com/photo.jpg', alt: 'A photo of a workshop.' },
     fictional: true,
@@ -140,4 +144,29 @@ test('a collection rejects duplicate slugs and file name mismatches', () => {
   const mismatch = validateCollection([{ slug: 'other-name', profile: validProfile }]);
   assert.equal(mismatch.valid, false);
   assert.ok(mismatch.errors.some((error) => error.includes('must match the file name')));
+});
+
+test('links must have a label and a safe URL', () => {
+  const cases = [
+    [{ url: 'https://example.com' }, 'links[0].label:'],
+    [{ label: 'Blog' }, 'links[0].url:'],
+    [{ label: 'Blog', url: 'javascript:alert(1)' }, 'links[0].url:'],
+    [{ label: 'Blog', url: 'https://example.com', handle: '@me' }, 'links[0].handle:'],
+    ['https://example.com', 'links[0]:'],
+  ];
+  for (const [link, prefix] of cases) {
+    const result = validateProfile({ ...validProfile, links: [link] });
+    assert.equal(result.valid, false, `${JSON.stringify(link)} should be rejected`);
+    assert.ok(result.errors.some((error) => error.startsWith(prefix)), result.errors.join(', '));
+  }
+});
+
+test('links are limited to ten entries', () => {
+  const links = Array.from({ length: 11 }, (_, index) => ({
+    label: `Link ${index}`,
+    url: 'https://example.com',
+  }));
+  const result = validateProfile({ ...validProfile, links });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.startsWith('links:')));
 });

@@ -15,6 +15,20 @@
       "url": "https://example.com/your-project"
     }
   ],
+  "links": [
+    {
+      "label": "Blog",
+      "url": "https://example.com/your-blog"
+    },
+    {
+      "label": "Photos",
+      "url": "https://example.com/your-photos"
+    },
+    {
+      "label": "Social media profile",
+      "url": "https://example.com/@you"
+    }
+  ],
   "memories": [
     "An ordinary memory you would like remembered."
   ],
