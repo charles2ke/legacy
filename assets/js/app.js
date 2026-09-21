@@ -13,9 +13,14 @@ async function request(url, options = {}) {
   if (!response.ok) {
     const error = new Error(body.error || 'Request failed');
     error.details = body.details;
+    error.status = response.status;
     throw error;
   }
   return body;
+}
+
+function isAuthError(error) {
+  return error?.status === 401 || error?.status === 403;
 }
 
 function message(text, error = false) {
@@ -184,8 +189,9 @@ async function initDashboard(container) {
         message(error.message, true);
       }
     });
-  } catch {
-    window.location.assign('login.html');
+  } catch (error) {
+    if (isAuthError(error)) window.location.assign('login.html');
+    else message(error.message, true);
   }
 }
 
@@ -294,8 +300,9 @@ async function initModerator(container) {
       navigation.append(next);
     }
     if (navigation.childNodes.length) container.append(navigation);
-  } catch {
-    window.location.assign('login.html');
+  } catch (error) {
+    if (isAuthError(error)) window.location.assign('login.html');
+    else message(error.message, true);
   }
 }
 
