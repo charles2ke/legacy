@@ -27,6 +27,7 @@ in this repository, contributed through pull requests.
 - [Validation and tests](#validation-and-tests)
 - [Deployment](#deployment)
 - [Licensing](#licensing)
+- [Community documents](#community-documents)
 
 ## Project structure
 
@@ -84,6 +85,29 @@ table above are rejected by validation, so unexpected data never reaches the sit
 
 Links may only use `https:`, `http:` or `mailto:`. All contributor text is rendered
 as text: submitted HTML or scripts are never executed.
+
+### Length limits
+
+Validation also caps how long each piece of text may be, so a single profile
+cannot dominate the archive:
+
+| Field | Maximum characters |
+| --- | --- |
+| `slug` | 60 |
+| `name` | 80 |
+| `introduction` | 280 |
+| `story` | 8000 |
+| `autobiography` | 20000 |
+| `carryForward` | 1000 |
+| each `values` line | 160 |
+| `work[].title` | 120 |
+| `work[].description` | 600 |
+| `links[].label` | 80 |
+| each `memories` entry | 1000 |
+| `family[].name` | 80 |
+| `family[].note` | 200 |
+| `image.alt` | 300 |
+| any URL | 500 |
 
 `profiles/example-river-okonkwo.json` is a clearly labelled **fictional**
 demonstration profile. It describes no real person.
