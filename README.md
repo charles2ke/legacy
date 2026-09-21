@@ -107,6 +107,9 @@ cannot dominate the archive:
 | `family[].name` | 80 |
 | `family[].note` | 200 |
 | `image.alt` | 300 |
+| committed `image.src` path | 500 |
+| each `admins` entry | 39 |
+| each `allowedViewers` entry | 254 |
 | any URL | 500 |
 
 `profiles/example-river-okonkwo.json` is a clearly labelled **fictional**
