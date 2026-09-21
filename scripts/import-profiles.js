@@ -16,19 +16,23 @@ const source = path.resolve(sourceArg?.slice('--source='.length) || 'profiles');
 const index = JSON.parse(await readFile(path.join(source, 'index.json'), 'utf8'));
 if (!Array.isArray(index.profiles)) throw new Error('Source index.json must contain a profiles array');
 
+const candidates = [];
+for (const slug of index.profiles) {
+  const profile = JSON.parse(await readFile(path.join(source, `${slug}.json`), 'utf8'));
+  const validation = validateProfile(profile);
+  if (!validation.valid || profile.slug !== slug) {
+    throw new Error(`${slug}: ${validation.errors.join('; ') || 'slug does not match filename'}`);
+  }
+  candidates.push({ slug, profile });
+}
+
 const config = loadConfig();
 const database = await openDatabase(config.databasePath);
-let imported = 0;
 try {
-  for (const slug of index.profiles) {
-    const profile = JSON.parse(await readFile(path.join(source, `${slug}.json`), 'utf8'));
-    const validation = validateProfile(profile);
-    if (!validation.valid || profile.slug !== slug) {
-      throw new Error(`${slug}: ${validation.errors.join('; ') || 'slug does not match filename'}`);
-    }
-    const existing = await database.get('SELECT id FROM profiles WHERE slug = ?', [slug]);
-    if (existing) throw new Error(`${slug}: already exists in the database`);
-    await database.transaction(async (transaction) => {
+  await database.transaction(async (transaction) => {
+    for (const { slug, profile } of candidates) {
+      const existing = await transaction.get('SELECT id FROM profiles WHERE slug = ?', [slug]);
+      if (existing) throw new Error(`${slug}: already exists in the database`);
       const result = await transaction.run(
         `INSERT INTO profiles (owner_user_id, slug, status) VALUES (NULL, ?, 'draft')`,
         [slug],
@@ -47,11 +51,10 @@ try {
          VALUES (?, 'profile.imported_unowned', ?)`,
         [result.lastID, JSON.stringify({ provenance })],
       );
-      imported += 1;
-    });
-  }
+    }
+  });
 } finally {
   await database.close();
 }
 
-console.log(`Imported ${imported} profile(s) as unowned, unpublished drafts`);
+console.log(`Imported ${candidates.length} profile(s) as unowned, unpublished drafts`);

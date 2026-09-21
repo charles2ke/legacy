@@ -36,9 +36,11 @@ npm run import:profiles -- \
 
 Imports are deliberately **unowned, unpublished drafts**. They are never
 assigned to whichever user happens to run the command and are not published
-automatically. Before any migration-specific ownership or publication action,
-an operator must separately verify provenance, authority, content rights and
-consent. Do not put private consent evidence into the database or repository.
+automatically. The complete batch is validated and imported atomically, so a
+conflict or invalid entry leaves no partial import. Before any migration-specific
+ownership or publication action, an operator must separately verify provenance,
+authority, content rights and consent. Do not put private consent evidence into
+the database or repository.
 
 The included River Okonkwo file is labelled fictional in its name, introduction
 and `fictional` field. It is demonstration content, not a real biography.

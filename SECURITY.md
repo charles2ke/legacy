@@ -17,7 +17,8 @@ fabricate one. GitHub private vulnerability reporting may be used if enabled.
 - Rate limiting on sign-up, login and recovery endpoints.
 - Server-side validation and owner checks on every profile mutation.
 - Server-only roles and ownership; request bodies cannot assign either.
-- Moderator-only review and audit endpoints.
+- Moderator-only review and audit endpoints that verify the current database
+  role on every privileged request.
 - Separate approved and draft revisions; public queries require an approved
   revision.
 - Plain-text DOM rendering, allow-listed URL schemes and no server-side URL

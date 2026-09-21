@@ -78,7 +78,7 @@ npm audit --omit=dev  # check runtime dependencies
 On 2026-09-21 the implementation was checked locally with:
 
 - `npm run build` — profile validation and source checks passed.
-- `npm test` — all 48 tests passed.
+- `npm test` — all 50 tests passed.
 - `npm audit --omit=dev` — 0 known runtime vulnerabilities.
 - a migration smoke test and JSON import smoke test — passed; the imported
   profile remained unowned and unpublished.

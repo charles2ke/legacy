@@ -237,45 +237,63 @@ async function initEditor(form) {
 
 async function initModerator(container) {
   try {
-    const { profiles } = await request('/api/moderation/profiles');
+    const query = new URLSearchParams(window.location.search);
+    const page = Math.max(1, Number.parseInt(query.get('page') || '1', 10) || 1);
+    const { profiles, pagination } = await request(`/api/moderation/profiles?page=${page}`);
     if (!profiles.length) {
       container.textContent = 'No profiles are awaiting review.';
-      return;
-    }
-    for (const profile of profiles) {
-      const article = document.createElement('article');
-      article.className = 'card moderation-card';
-      const heading = document.createElement('h2');
-      heading.textContent = `${profile.draft.name} (${profile.status})`;
-      const content = document.createElement('pre');
-      content.textContent = JSON.stringify(profile.draft, null, 2);
-      const feedback = document.createElement('textarea');
-      feedback.setAttribute('aria-label', `Private feedback for ${profile.draft.name}`);
-      feedback.maxLength = 2000;
-      const approve = document.createElement('button');
-      approve.textContent = 'Approve';
-      const reject = document.createElement('button');
-      reject.textContent = 'Reject';
-      for (const [button, decision] of [
-        [approve, 'approved'],
-        [reject, 'rejected'],
-      ]) {
-        button.type = 'button';
-        button.addEventListener('click', async () => {
-          try {
-            await request(`/api/moderation/profiles/${profile.id}/decision`, {
-              method: 'POST',
-              body: JSON.stringify({ decision, feedback: feedback.value }),
-            });
-            window.location.reload();
-          } catch (error) {
-            message(error.message, true);
-          }
-        });
+    } else {
+      for (const profile of profiles) {
+        const article = document.createElement('article');
+        article.className = 'card moderation-card';
+        const heading = document.createElement('h2');
+        heading.textContent = `${profile.draft.name} (${profile.status})`;
+        const content = document.createElement('pre');
+        content.textContent = JSON.stringify(profile.draft, null, 2);
+        const feedback = document.createElement('textarea');
+        feedback.setAttribute('aria-label', `Private feedback for ${profile.draft.name}`);
+        feedback.maxLength = 2000;
+        const approve = document.createElement('button');
+        approve.textContent = 'Approve';
+        const reject = document.createElement('button');
+        reject.textContent = 'Reject';
+        for (const [button, decision] of [
+          [approve, 'approved'],
+          [reject, 'rejected'],
+        ]) {
+          button.type = 'button';
+          button.addEventListener('click', async () => {
+            try {
+              await request(`/api/moderation/profiles/${profile.id}/decision`, {
+                method: 'POST',
+                body: JSON.stringify({ decision, feedback: feedback.value }),
+              });
+              window.location.reload();
+            } catch (error) {
+              message(error.message, true);
+            }
+          });
+        }
+        article.append(heading, content, feedback, approve, reject);
+        container.append(article);
       }
-      article.append(heading, content, feedback, approve, reject);
-      container.append(article);
     }
+    const navigation = document.createElement('nav');
+    navigation.className = 'pagination';
+    navigation.setAttribute('aria-label', 'Moderation queue pages');
+    if (pagination.page > 1) {
+      const previous = document.createElement('a');
+      previous.href = `?page=${pagination.page - 1}`;
+      previous.textContent = '← Previous';
+      navigation.append(previous);
+    }
+    if (pagination.page < pagination.pages) {
+      const next = document.createElement('a');
+      next.href = `?page=${pagination.page + 1}`;
+      next.textContent = 'Next →';
+      navigation.append(next);
+    }
+    if (navigation.childNodes.length) container.append(navigation);
   } catch {
     window.location.assign('login.html');
   }

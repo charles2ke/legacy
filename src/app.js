@@ -50,9 +50,16 @@ function requireUser(req, res, next) {
   next();
 }
 
-function requireModerator(req, res, next) {
-  if (req.session.role !== 'moderator') return jsonError(res, 403, 'Moderator access required');
-  next();
+function requireModerator(database) {
+  return async (req, res, next) => {
+    try {
+      const user = await database.get('SELECT role FROM users WHERE id = ?', [req.session.userId]);
+      if (user?.role !== 'moderator') return jsonError(res, 403, 'Moderator access required');
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 function sessionRegenerate(req) {
@@ -83,6 +90,7 @@ async function ownedProfile(database, profileId, userId) {
 
 export async function createApp({ config, database, mailer, logger = console, authLimit = 10 }) {
   const app = express();
+  const moderatorOnly = requireModerator(database);
   if (config.trustProxy) app.set('trust proxy', 1);
   app.disable('x-powered-by');
   app.use(
@@ -152,7 +160,6 @@ export async function createApp({ config, database, mailer, logger = console, au
       }
       await sessionRegenerate(req);
       req.session.userId = result.lastID;
-      req.session.role = 'owner';
       res.status(201).json({ id: result.lastID, role: 'owner' });
     } catch (error) {
       next(error);
@@ -169,7 +176,6 @@ export async function createApp({ config, database, mailer, logger = console, au
       }
       await sessionRegenerate(req);
       req.session.userId = user.id;
-      req.session.role = user.role;
       res.json({ id: user.id, role: user.role });
     } catch (error) {
       next(error);
@@ -405,17 +411,17 @@ export async function createApp({ config, database, mailer, logger = console, au
     }
   });
 
-  app.get('/api/moderation/profiles', requireUser, requireModerator, async (req, res, next) => {
+  app.get('/api/moderation/profiles', requireUser, moderatorOnly, async (req, res, next) => {
     try {
       const page = Math.max(1, Number.parseInt(req.query.page || '1', 10) || 1);
       const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit || '20', 10) || 20));
       const count = await database.get(
-        `SELECT COUNT(*) AS total FROM profiles WHERE status IN ('pending', 'rejected')`,
+        `SELECT COUNT(*) AS total FROM profiles WHERE status = 'pending'`,
       );
       const rows = await database.all(
         `SELECT p.id, p.slug, p.status, p.updated_at, r.content_json
            FROM profiles p JOIN profile_revisions r ON r.id = p.draft_revision_id
-          WHERE p.status IN ('pending', 'rejected') ORDER BY p.updated_at ASC, p.id ASC
+          WHERE p.status = 'pending' ORDER BY p.updated_at ASC, p.id ASC
           LIMIT ? OFFSET ?`,
         [limit, (page - 1) * limit],
       );
@@ -434,7 +440,7 @@ export async function createApp({ config, database, mailer, logger = console, au
     }
   });
 
-  app.post('/api/moderation/profiles/:id/decision', requireUser, requireModerator, async (req, res, next) => {
+  app.post('/api/moderation/profiles/:id/decision', requireUser, moderatorOnly, async (req, res, next) => {
     try {
       if (!['approved', 'rejected'].includes(req.body.decision)) {
         return jsonError(res, 400, 'Decision must be approved or rejected');
@@ -479,7 +485,7 @@ export async function createApp({ config, database, mailer, logger = console, au
     }
   });
 
-  app.get('/api/moderation/audit', requireUser, requireModerator, async (req, res, next) => {
+  app.get('/api/moderation/audit', requireUser, moderatorOnly, async (req, res, next) => {
     try {
       const rows = await database.all(
         `SELECT id, actor_user_id, profile_id, action, details_json, created_at

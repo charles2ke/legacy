@@ -7,7 +7,7 @@ function boolean(value, fallback = false) {
   return value === '1' || value.toLowerCase() === 'true';
 }
 
-function publicUrl(value, name, { optional = false } = {}) {
+function publicUrl(value, name, { optional = false, schemes = ['https:', 'http:'] } = {}) {
   if (!value && optional) return null;
   let parsed;
   try {
@@ -15,7 +15,7 @@ function publicUrl(value, name, { optional = false } = {}) {
   } catch {
     throw new Error(`${name} must be a valid absolute URL`);
   }
-  if (!['https:', 'http:'].includes(parsed.protocol) && !(optional && parsed.protocol === 'mailto:')) {
+  if (!schemes.includes(parsed.protocol)) {
     throw new Error(`${name} uses an unsupported URL scheme`);
   }
   return parsed.toString();
@@ -48,7 +48,10 @@ export function loadConfig(env = process.env) {
     appBaseUrl,
     sessionSecret,
     trustProxy: boolean(env.TRUST_PROXY),
-    publicRemovalUrl: publicUrl(env.PUBLIC_REMOVAL_URL, 'PUBLIC_REMOVAL_URL', { optional: true }),
+    publicRemovalUrl: publicUrl(env.PUBLIC_REMOVAL_URL, 'PUBLIC_REMOVAL_URL', {
+      optional: true,
+      schemes: ['https:', 'mailto:'],
+    }),
     devRecoveryLog: !production && boolean(env.DEV_RECOVERY_LOG),
     smtp: smtpConfigured
       ? {

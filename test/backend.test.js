@@ -103,6 +103,16 @@ test('production configuration fails closed without secure settings', () => {
       }),
     /local development only/,
   );
+  assert.throws(
+    () =>
+      loadConfig({
+        NODE_ENV: 'production',
+        APP_BASE_URL: 'https://legacy.example',
+        SESSION_SECRET: 'a-production-secret-that-is-long-enough',
+        PUBLIC_REMOVAL_URL: 'http://legacy.example/removal',
+      }),
+    /unsupported URL scheme/,
+  );
 });
 
 test('database transactions serialize concurrent writers without cross-rollback', async (t) => {
@@ -203,6 +213,9 @@ test('moderation protects every public path and keeps approved revisions live du
     decision: 'rejected',
     feedback: 'Please remove the private passage.',
   }).expect(200);
+  await moderator.get('/api/moderation/profiles').expect(200).expect(({ body }) => {
+    assert.equal(body.profiles.length, 0);
+  });
 
   const ownerView = await owner.get('/api/me/profiles').expect(200);
   assert.equal(ownerView.body.profiles[0].feedback, 'Please remove the private passage.');
@@ -217,6 +230,17 @@ test('moderation protects every public path and keeps approved revisions live du
   await supertest(app).get('/api/profiles/river-song').expect(404);
   await mutate(owner, 'delete', `/api/me/profiles/${created.body.id}`).expect(204);
   await owner.get('/api/me/profiles').expect(200).expect(({ body }) => assert.equal(body.profiles.length, 0));
+});
+
+test('moderator authorization uses the current database role', async (t) => {
+  const { app, database } = await fixture(t);
+  const moderator = supertest.agent(app);
+  await createModerator(database);
+  await login(moderator, 'moderator@example.test').expect(200);
+  await moderator.get('/api/moderation/audit').expect(200);
+
+  await database.run(`UPDATE users SET role = 'owner' WHERE email = ?`, ['moderator@example.test']);
+  await moderator.get('/api/moderation/audit').expect(403);
 });
 
 test('validation rejects dangerous URLs while preserving malicious-looking text as data', async (t) => {
