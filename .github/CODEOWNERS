@@ -6,4 +6,10 @@
 # This only takes effect once a maintainer enables branch protection with
 # "Require review from Code Owners". See docs/VISIBILITY.md.
 
+# The rules themselves are maintainer-owned: this file and the script that
+# generates it cannot be rewritten without a maintainer review. These two
+# lines are part of the generator, so regenerating always writes them back.
+/.github/ @charles2ke
+/scripts/ @charles2ke
+
 /profiles/example-river-okonkwo.json @charles2ke

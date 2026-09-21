@@ -77,8 +77,15 @@ it, including changing its visibility.
 profile, and CI fails if the committed file has drifted from the profiles:
 
 ```text
+/.github/ @charles2ke
+/scripts/ @charles2ke
 /profiles/example-river-okonkwo.json @charles2ke
 ```
+
+The first two lines are written by the generator itself and cover the rules that
+decide ownership — `.github/CODEOWNERS` and `scripts/build-codeowners.js` — so a
+pull request cannot delete or rewrite the profile lines without a maintainer's
+review.
 
 > **Maintainer configuration needed.** CODEOWNERS has no effect on its own. Until
 > a maintainer enables branch protection on the default branch with **Require a

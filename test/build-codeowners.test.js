@@ -57,9 +57,24 @@ test('a file name that is not a slug never reaches CODEOWNERS', () => {
   assert.ok(!output.includes('@attacker'));
   assert.ok(!output.includes('escape'));
   assert.ok(!output.includes('Upper Case'));
-  // Only the header comments and the one good rule: nothing else got a line.
+  // Only the fixed maintainer rules and the one good rule: nothing else got a line.
   const rules = output.split('\n').filter((line) => line.startsWith('/'));
-  assert.deepEqual(rules, ['/profiles/fine.json @victim']);
+  assert.deepEqual(rules, [
+    '/.github/ @charles2ke',
+    '/scripts/ @charles2ke',
+    '/profiles/fine.json @victim',
+  ]);
+});
+
+test('the rules that decide ownership are owned by a maintainer', () => {
+  // Without these, a pull request could delete the profile rules below and be
+  // merged without any profile owner approving it.
+  const output = renderCodeowners([{ slug: 'ada', profile: { admins: ['ada'] } }]);
+  assert.match(output, /^\/\.github\/ @charles2ke$/m);
+  assert.match(output, /^\/scripts\/ @charles2ke$/m);
+  // They come before the profile rules, and survive regeneration with no profiles.
+  assert.ok(output.indexOf('/.github/') < output.indexOf('/profiles/ada.json'));
+  assert.match(renderCodeowners([]), /^\/\.github\/ @charles2ke$/m);
 });
 
 test('the committed CODEOWNERS matches the profiles in this repository', async () => {
