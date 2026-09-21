@@ -34,5 +34,16 @@
     "Reading nights ran late every winter, and nobody ever admitted to being the last one out.",
     "A soldering iron with tape on the handle that outlasted three laptops."
   ],
+  "family": [
+    {
+      "relation": "parent",
+      "name": "Ada Okonkwo (fictional)",
+      "note": "Ran the repair shop where River learned to solder."
+    },
+    {
+      "relation": "sibling",
+      "name": "Tobi Okonkwo (fictional)"
+    }
+  ],
   "fictional": true
 }

@@ -25,6 +25,8 @@ requesting private documents in public — or decline.
       including in a long `autobiography`, where such details are easy to slip in.
 - [ ] No government identifiers, financial or medical details.
 - [ ] No passwords, recovery codes, tokens or account access instructions.
+- [ ] `family` entries name living people only with permission, and carry no more
+      than a name, relationship and a short neutral note.
 - [ ] Third parties mentioned in stories are not identified in ways that expose
       their private information.
 

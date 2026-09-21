@@ -33,6 +33,14 @@
   "memories": [
     "An ordinary memory you would like remembered."
   ],
+  "family": [
+    {
+      "relation": "sibling",
+      "name": "A relative's name, shared with their permission",
+      "slug": "their-profile-slug",
+      "note": "One short line, if you want one."
+    }
+  ],
   "image": {
     "src": "assets/images/replace-with-your-image.jpg",
     "alt": "A description of the image for people who cannot see it."

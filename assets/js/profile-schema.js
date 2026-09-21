@@ -17,7 +17,22 @@ export const MAX_LENGTHS = {
   imageAlt: 300,
   carryForward: 1000,
   url: 500,
+  relationName: 80,
+  relationNote: 200,
 };
+
+// Relationships a profile may describe. A fixed list keeps the wording simple
+// and stops free text being used to record sensitive detail about other people.
+export const ALLOWED_RELATIONS = [
+  'parent',
+  'child',
+  'sibling',
+  'partner',
+  'grandparent',
+  'grandchild',
+  'relative',
+  'chosen-family',
+];
 
 // Only these URL schemes are allowed anywhere in a profile.
 export const ALLOWED_URL_SCHEMES = ['https:', 'http:', 'mailto:'];
@@ -41,6 +56,7 @@ const ALLOWED_TOP_LEVEL_FIELDS = [
   'links',
   'memories',
   'image',
+  'family',
   'carryForward',
   'fictional',
 ];
@@ -200,6 +216,37 @@ export function validateProfile(profile) {
     });
   }
 
+  if (profile.family !== undefined && checkArray(errors, 'family', profile.family, 20)) {
+    profile.family.forEach((item, index) => {
+      const base = `family[${index}]`;
+      if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        errors.push(`${base}: must be an object`);
+        return;
+      }
+      if (!ALLOWED_RELATIONS.includes(item.relation)) {
+        errors.push(`${base}.relation: must be one of ${ALLOWED_RELATIONS.join(', ')}`);
+      }
+      checkText(errors, `${base}.name`, item.name, MAX_LENGTHS.relationName, { required: true });
+      if (item.slug !== undefined) {
+        checkText(errors, `${base}.slug`, item.slug, MAX_LENGTHS.slug);
+        if (typeof item.slug === 'string' && !SLUG_PATTERN.test(item.slug)) {
+          errors.push(`${base}.slug: must be the slug of a profile in this archive`);
+        }
+        if (item.slug === profile.slug) {
+          errors.push(`${base}.slug: must not be this profile's own slug`);
+        }
+      }
+      if (item.note !== undefined) {
+        checkText(errors, `${base}.note`, item.note, MAX_LENGTHS.relationNote);
+      }
+      for (const key of Object.keys(item)) {
+        if (!['relation', 'name', 'slug', 'note'].includes(key)) {
+          errors.push(`${base}.${key}: is not an allowed field`);
+        }
+      }
+    });
+  }
+
   if (profile.image !== undefined) {
     const image = profile.image;
     if (typeof image !== 'object' || image === null || Array.isArray(image)) {
@@ -234,6 +281,7 @@ export function validateProfile(profile) {
 export function validateCollection(entries) {
   const errors = [];
   const seen = new Set();
+  const knownSlugs = new Set(entries.map((entry) => entry.slug));
 
   for (const entry of entries) {
     const result = validateProfile(entry.profile);
@@ -247,6 +295,13 @@ export function validateCollection(entries) {
       errors.push(`${entry.slug}: duplicate slug`);
     }
     seen.add(entry.slug);
+    if (Array.isArray(entry.profile?.family)) {
+      entry.profile.family.forEach((item, index) => {
+        if (typeof item?.slug === 'string' && SLUG_PATTERN.test(item.slug) && !knownSlugs.has(item.slug)) {
+          errors.push(`${entry.slug}: family[${index}].slug: must be the slug of a profile in this archive`);
+        }
+      });
+    }
   }
 
   return { valid: errors.length === 0, errors };

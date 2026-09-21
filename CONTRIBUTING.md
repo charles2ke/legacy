@@ -71,6 +71,11 @@ The fields, limits and required values are documented in the
   placeholder: replace it with your own image, or delete the whole block.
   Validation fails if a profile points at an `assets/images/` file that is not in
   the repository.
+- `family` names other people, so only include someone if you have their
+  permission, and keep it to a name and relationship. Use `slug` only when that
+  person already has a profile in this archive; the site links to it when the
+  slug is valid. Do not record dates of birth, addresses or health details in a
+  `note`.
 - `autobiography` is optional. Use it if you want to write a longer account of
   your life than `story`; blank lines separate paragraphs, and it is shown after
   your story. Leave the field out entirely if you do not want one. The same
