@@ -12,6 +12,7 @@ async function request(url, options = {}) {
   const body = response.status === 204 ? null : await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(body.error || 'Request failed');
+    error.status = response.status;
     error.details = body.details;
     throw error;
   }
@@ -294,8 +295,13 @@ async function initModerator(container) {
       navigation.append(next);
     }
     if (navigation.childNodes.length) container.append(navigation);
-  } catch {
-    window.location.assign('login.html');
+  } catch (error) {
+    if (error.status === 401) {
+      window.location.assign('login.html');
+      return;
+    }
+    container.textContent = '';
+    message(error.message, true);
   }
 }
 
