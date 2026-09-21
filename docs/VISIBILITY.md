@@ -73,20 +73,26 @@ it, including changing its visibility.
 { "admins": ["charles2ke"] }
 ```
 
-`node scripts/build-codeowners.js` turns those lists into `.github/CODEOWNERS`,
-one line per profile. Run `node scripts/build-codeowners.js --check` to verify
-the committed file has not drifted from the profiles:
+`npm run codeowners` turns those lists into `.github/CODEOWNERS`, one line per
+profile, and CI fails if the committed file has drifted from the profiles:
 
 ```text
-/.github/ @charles2ke
-/scripts/ @charles2ke
 /profiles/example-river-okonkwo.json @charles2ke
 ```
 
-The first two lines are written by the generator itself and cover the rules that
-decide ownership — `.github/CODEOWNERS` and `scripts/build-codeowners.js` — so a
-pull request cannot delete or rewrite the profile lines without a maintainer's
-review.
+The generator also writes a fixed rule giving the maintainers ownership of
+`.github/` — CODEOWNERS itself and the workflows that check it — and of the
+script that writes the file:
+
+```text
+/.github/ @charles2ke
+/scripts/build-codeowners.js @charles2ke
+```
+
+Without it a pull request could delete the profile rules, or change the script
+that produces them, with no profile owner having to approve. The rules come last
+because the last matching rule wins, and `npm run codeowners:check` (run by the
+test suite) fails if the committed file has lost them.
 
 > **Maintainer configuration needed.** CODEOWNERS has no effect on its own. Until
 > a maintainer enables branch protection on the default branch with **Require a
