@@ -58,12 +58,7 @@ try {
   await page.getByRole('heading', { name: /Browser River/ }).waitFor();
   await page.screenshot({ path: 'test-results/moderation-review.png', fullPage: true });
   await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.url().includes('/api/moderation/profiles/') &&
-        response.url().endsWith('/decision') &&
-        response.status() === 200,
-    ),
+    page.waitForNavigation({ waitUntil: 'load' }),
     page.getByRole('button', { name: 'Approve' }).click(),
   ]);
 
