@@ -68,6 +68,11 @@ The fields, limits and required values are documented in the
   placeholder: replace it with your own image, or delete the whole block.
   Validation fails if a profile points at an `assets/images/` file that is not in
   the repository.
+- `autobiography` is optional. Use it if you want to write a longer account of
+  your life than `story`; blank lines separate paragraphs, and it is shown after
+  your story. Leave the field out entirely if you do not want one. The same
+  privacy rules apply: no birth dates, addresses, private phone numbers or email
+  addresses.
 - Fields not listed in the format table are rejected, so please do not invent new
   ones. If something important does not fit, open an issue and suggest it.
 - Contributor text is always rendered as text; HTML and scripts will not run.

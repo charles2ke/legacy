@@ -56,3 +56,9 @@ test('images are dropped unless the source is safe and alt text exists', () => {
   });
   assert.equal(safeImage(undefined), null);
 });
+
+test('an autobiography is split into paragraphs of plain text', () => {
+  assert.deepEqual(toParagraphs('Early years.\n\nLater years.'), ['Early years.', 'Later years.']);
+  assert.deepEqual(toParagraphs('<b>Not markup</b>'), ['<b>Not markup</b>']);
+  assert.deepEqual(toParagraphs(undefined), []);
+});

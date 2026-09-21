@@ -61,6 +61,7 @@ Each profile is one JSON file named after its slug, for example
 | `introduction` | yes | One or two sentences |
 | `story` | yes | Blank lines separate paragraphs |
 | `carryForward` | yes | What you hope others carry forward |
+| `autobiography` | no | A longer life account, up to 20000 characters; blank lines separate paragraphs |
 | `values` | no | Up to 10 short lines |
 | `work` | no | Up to 20 entries: `title`, optional `description`, optional `url` |
 | `memories` | no | Up to 20 short memories |
