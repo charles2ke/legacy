@@ -73,8 +73,9 @@ it, including changing its visibility.
 { "admins": ["charles2ke"] }
 ```
 
-`npm run codeowners` turns those lists into `.github/CODEOWNERS`, one line per
-profile, and CI fails if the committed file has drifted from the profiles:
+`node scripts/build-codeowners.js` turns those lists into `.github/CODEOWNERS`,
+one line per profile. Run `node scripts/build-codeowners.js --check` to verify
+the committed file has not drifted from the profiles:
 
 ```text
 /.github/ @charles2ke
