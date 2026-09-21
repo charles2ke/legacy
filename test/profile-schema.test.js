@@ -146,6 +146,33 @@ test('a collection rejects duplicate slugs and file name mismatches', () => {
   assert.ok(mismatch.errors.some((error) => error.includes('must match the file name')));
 });
 
+test('autobiography is optional, and rejected when empty, oversized or not a string', () => {
+  assert.deepEqual(validateProfile(validProfile), { valid: true, errors: [] });
+
+  const present = validateProfile({
+    ...validProfile,
+    autobiography: 'A longer account.\n\nWith two paragraphs.',
+  });
+  assert.deepEqual(present.errors, []);
+
+  for (const value of [null, 42, ['a'], { text: 'a' }]) {
+    const result = validateProfile({ ...validProfile, autobiography: value });
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes('autobiography: must be a string'));
+  }
+
+  const empty = validateProfile({ ...validProfile, autobiography: '   ' });
+  assert.equal(empty.valid, false);
+  assert.ok(empty.errors.includes('autobiography: must not be empty'));
+
+  const oversized = validateProfile({ ...validProfile, autobiography: 'a'.repeat(20001) });
+  assert.equal(oversized.valid, false);
+  assert.ok(oversized.errors.includes('autobiography: must be 20000 characters or fewer'));
+
+  const atLimit = validateProfile({ ...validProfile, autobiography: 'a'.repeat(20000) });
+  assert.deepEqual(atLimit.errors, []);
+});
+
 test('links must have a label and a safe URL', () => {
   const cases = [
     [{ url: 'https://example.com' }, 'links[0].label:'],

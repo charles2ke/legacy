@@ -8,6 +8,7 @@ export const MAX_LENGTHS = {
   name: 80,
   introduction: 280,
   story: 8000,
+  autobiography: 20000,
   value: 160,
   workTitle: 120,
   workDescription: 600,
@@ -34,6 +35,7 @@ const ALLOWED_TOP_LEVEL_FIELDS = [
   'name',
   'introduction',
   'story',
+  'autobiography',
   'values',
   'work',
   'links',
@@ -140,6 +142,10 @@ export function validateProfile(profile) {
   checkText(errors, 'introduction', profile.introduction, MAX_LENGTHS.introduction);
   checkText(errors, 'story', profile.story, MAX_LENGTHS.story);
   checkText(errors, 'carryForward', profile.carryForward, MAX_LENGTHS.carryForward);
+
+  if (profile.autobiography !== undefined) {
+    checkText(errors, 'autobiography', profile.autobiography, MAX_LENGTHS.autobiography);
+  }
 
   if (profile.values !== undefined && checkArray(errors, 'values', profile.values, 10)) {
     profile.values.forEach((value, index) => {
