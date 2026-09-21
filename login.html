@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in — Legacy</title><link rel="stylesheet" href="assets/css/styles.css" />
+    <script type="module" src="assets/js/app.js"></script>
+  </head>
+  <body><a class="skip-link" href="#main">Skip to main content</a>
+    <header class="site-header"><div class="wrap"><a class="site-title" href="index.html">Legacy</a><nav class="site-nav" aria-label="Main"><ul><li><a href="profiles.html">Profiles</a></li><li><a href="signup.html">Create account</a></li></ul></nav></div></header>
+    <main id="main" class="wrap narrow"><h1>Sign in</h1>
+      <form data-auth-form data-endpoint="/api/auth/login">
+        <label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required />
+        <label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required />
+        <button class="button" type="submit">Sign in</button>
+      </form>
+      <p><a href="recover.html">Forgot your password?</a></p><p tabindex="-1" role="alert" data-message></p>
+    </main>
+  </body>
+</html>
+

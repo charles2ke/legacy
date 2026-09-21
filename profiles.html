@@ -26,16 +26,25 @@
     <main id="main" class="wrap">
       <h1>Profiles</h1>
       <p class="lede">
-        Each profile was written by the person it describes, or shared with their
-        permission.
+        Only moderator-approved profiles appear here. Identity is not independently
+        verified.
       </p>
+      <form class="filters" method="get" action="profiles.html" role="search">
+        <label for="q">Search approved profiles</label>
+        <input id="q" name="q" type="search" maxlength="100" />
+        <label for="fictional">Profile type</label>
+        <select id="fictional" name="fictional">
+          <option value="">All profiles</option>
+          <option value="false">Non-fictional</option>
+          <option value="true">Fictional examples</option>
+        </select>
+        <label><input type="checkbox" name="hasWork" value="true" /> Includes work</label>
+        <button class="button" type="submit">Search</button>
+      </form>
       <div data-profile-list aria-live="polite">
         <noscript>
           <p class="status">
-            This page needs JavaScript to list profiles. You can read the profile
-            files directly in the
-            <a href="https://github.com/charles2ke/legacy/tree/main/profiles">profiles folder</a>
-            of the repository.
+            JavaScript is required to load the moderated public directory.
           </p>
         </noscript>
       </div>
@@ -47,6 +56,7 @@
           Want to add a profile? Read the
           <a href="contribute.html">contribution instructions</a>.
         </p>
+        <p data-removal-contact>Loading removal contact…</p>
       </div>
     </footer>
   </body>

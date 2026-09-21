@@ -1,43 +1,16 @@
-# Code licence and contributor content
+# Code and profile content rights
 
-This repository contains two different kinds of material, and they are **not**
-covered by the same terms.
+The repository's MIT license covers the software code unless a file says
+otherwise. It does **not** automatically license a person's story, memories,
+name, photographs, recordings or other profile media under MIT.
 
-## Site code — MIT
+Profile owners retain whatever rights they hold in their content and grant only
+the permission necessary to review, store and publicly display an approved
+revision through this project. A submitter must have permission for every
+included item and link. Approval is not a declaration that identity or rights
+were independently verified.
 
-The HTML, CSS, JavaScript, scripts, workflows and configuration files are licensed
-under the [MIT License](../LICENSE). Reuse them freely.
-
-## Contributor content — rights stay with the author
-
-The personal material in `profiles/` — stories, memories, values, descriptions and
-any images — is **not** licensed under MIT, is **not** dedicated to the public
-domain, and is **not** assigned to the project or to any maintainer. Authors keep
-whatever rights they have in what they wrote.
-
-By opening a pull request that adds content, you confirm only that:
-
-1. you have the right to share that content, and
-2. you permit this project to publish it in this public repository and on the
-   project's website, and to keep it there until it is removed.
-
-That is the whole permission. It does not include selling the content, licensing it
-to others, or claiming ownership of it. It reflects the practical reality of a
-public Git repository: the content is stored, served, forked and cloned by others
-as part of normal use.
-
-## What this does not do
-
-- It does not grant the project broad or exclusive rights over your story.
-- It does not give other people permission to republish your story elsewhere.
-  Readers who want to reuse a profile should ask its author.
-- It does not stop you from publishing the same content anywhere else. It is yours.
-- It does not make the content private or retractable from third parties — see
-  [PRIVACY.md](PRIVACY.md) for what removal can and cannot achieve.
-
-## If you want different terms
-
-If you would like to place your own profile under a specific licence — for example
-CC BY 4.0, or a clear "all rights reserved" note — say so in your pull request and
-maintainers can record it in the review discussion. Please do not add extra fields
-to the JSON file; the format is deliberately fixed.
+Removing a live profile stops this application from serving it, but cannot
+recall previous Git commits, forks, backups, caches or third-party copies.
+Imported JSON requires a recorded provenance note and separate consent/rights
+review; import itself grants no rights and publishes nothing.

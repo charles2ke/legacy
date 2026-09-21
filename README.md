@@ -1,207 +1,144 @@
 # Legacy
 
-A community digital legacy archive: people share their stories, memories and links
-to their work as small JSON files, published through a simple static website.
+Legacy is a runnable, moderated digital legacy platform. People create private
+accounts and drafts, explicitly consent to publication, and submit profiles for
+moderator review. Only an approved revision can appear in the public directory.
 
-**What this project is:** a place to write down who you are, what you value, what you
-made, and what you hope others carry forward — in your own words, reviewed by
-maintainers, published as a plain web page.
+It cannot promise permanent hosting, prevent all copies, verify identity, or
+ensure that anyone is never forgotten. Keep independent copies of important
+material.
 
-**What this project is not:** it aims to help preserve and share memories, but it
-**cannot promise permanent hosting** and **cannot promise that anyone will never be
-forgotten**. It is **not a credential vault** (never submit passwords or account
-access) and **not an official memorial verification service** — no profile here is
-verified as belonging to a particular real person. Keep your own
-[independent backups](docs/BACKUPS.md).
+## Architecture
 
-This first version has no accounts, no backend and no database. Everything is files
-in this repository, contributed through pull requests.
+- Node.js 24 and Express serve the site and JSON API.
+- SQLite stores accounts, sessions, drafts, approved revisions, private
+  feedback, recovery tokens and a minimal audit trail.
+- `express-session` uses an application SQLite store. Cookies are HTTP-only,
+  SameSite=Lax, and Secure in production.
+- Argon2id hashes passwords. `csrf-sync` protects state-changing API requests.
+- `assets/js/profile-schema.js` remains the shared profile validator used by
+  the browser-era JSON checks and the backend.
+- Nodemailer sends password recovery mail only when SMTP is configured.
 
-## Contents
+The application does not upload files or fetch submitted URLs server-side.
+Profile content is rendered as text, and links are restricted to validated
+schemes.
 
-- [Project structure](#project-structure)
-- [Profile format](#profile-format)
-- [Visibility](#visibility)
-- [Contributing a profile](#contributing-a-profile)
-- [Local preview](#local-preview)
-- [Validation and tests](#validation-and-tests)
-- [Deployment](#deployment)
-- [Licensing](#licensing)
+## Run locally
 
-## Project structure
-
-```text
-index.html               Landing page
-profiles.html            Browsable list of profiles
-profile.html             Individual profile view (profile.html?slug=example)
-contribute.html          Short contribution instructions
-assets/css/styles.css    Styles (no frameworks, no build step)
-assets/js/profile-schema.js  Profile rules, shared by the site and CI
-assets/js/render.js      Pure rendering helpers (paths, safe URLs, paragraphs)
-assets/js/site.js        Page behaviour (text-only DOM rendering)
-profiles/_template.json  Template to copy when adding a profile
-profiles/index.json      List of published slugs
-profiles/*.json          One file per profile
-scripts/validate-profiles.js  Validation used locally and in CI
-scripts/build-codeowners.js   Writes .github/CODEOWNERS from each profile's admins
-scripts/build-access-policies.js  Access policies for a gated private instance
-test/                    Node test-runner tests
-docs/                    Privacy, visibility, backups, moderation and deployment notes
-```
-
-The site uses only relative links and relative data paths, so it works both at a
-domain root and under a project path such as `https://<user>.github.io/legacy/`.
-
-## Profile format
-
-Each profile is one JSON file named after its slug, for example
-`profiles/river-song.json`, plus the same slug added to `profiles/index.json`.
-
-| Field | Required | Notes |
-| --- | --- | --- |
-| `slug` | yes | Unique, lowercase letters/numbers/hyphens, must match the file name |
-| `name` | yes | The name you want shown publicly; a chosen name is fine |
-| `introduction` | yes | One or two sentences |
-| `story` | yes | Blank lines separate paragraphs |
-| `carryForward` | yes | What you hope others carry forward |
-| `autobiography` | no | A longer life account, up to 20000 characters; blank lines separate paragraphs |
-| `values` | no | Up to 10 short lines |
-| `work` | no | Up to 20 entries: `title`, optional `description`, optional `url` |
-| `links` | no | Up to 10 links (social media, blog, photos, anything else): `label` and `url` |
-| `memories` | no | Up to 20 short memories |
-| `family` | no | Up to 20 relations: `relation` (`parent`, `child`, `sibling`, `partner`, `grandparent`, `grandchild`, `relative`, `chosen-family`), `name`, optional `slug` of their profile here, optional short `note` |
-| `image` | no | `src` (an `https`/`http` URL, or a file committed under `assets/images/`) and required `alt` text |
-| `fictional` | no | `true` marks a demonstration profile |
-| `visibility` | no | `public` (default), `private` or `restricted` — see [visibility](#visibility) |
-| `admins` | no | Up to 10 GitHub usernames who own the profile and may change its visibility |
-| `allowedViewers` | no | Required when `visibility` is `restricted`, and rejected otherwise; never accepted in this repository |
-
-Optional fields stay optional — leave them out entirely if you do not want them.
-
-**Do not include** birth dates, addresses, private phone numbers or emails,
-passwords, account access, or anything else sensitive. Fields that are not in the
-table above are rejected by validation, so unexpected data never reaches the site.
-
-Links may only use `https:`, `http:` or `mailto:`. All contributor text is rendered
-as text: submitted HTML or scripts are never executed.
-
-`profiles/example-river-okonkwo.json` is a clearly labelled **fictional**
-demonstration profile. It describes no real person.
-
-## Visibility
-
-A profile declares how widely it wants to be published, but **the declaration
-lives in the profile and the enforcement does not**: nothing running in a browser
-can keep a reader away from a file the browser has already been given.
-
-| Mode | Meaning | Enforced by |
-| --- | --- | --- |
-| `public` | Anyone can read it | Nothing needed — this is how the archive works |
-| `private` | Only people with access to the repository | A **private** repository; never published |
-| `restricted` | Only the people named in `allowedViewers` | An **authenticating host** in front of a private deployment |
-
-**This repository accepts `public` only.** It is a public repository, so anything
-committed here is readable by anyone whatever the file says about itself, and
-`npm run validate` fails on a profile that asks to be `private` or `restricted`.
-A deployment decides for itself which kind it is, through the `LEGACY_INSTANCE`
-environment variable rather than through any file under `profiles/`, so a pull
-request cannot turn that check off. Those modes belong in a separate private
-instance, which needs no new code — the schema, the validator and the site work
-there unchanged.
-
-`admins` names the people who own a profile. `npm run codeowners` turns those
-lists into `.github/CODEOWNERS` so they are the required reviewers for their own
-file, which takes effect once a maintainer enables branch protection with
-"Require review from Code Owners".
-
-Full instructions, including how to set up a private instance and how to gate
-individual profiles with an authenticating host, are in
-[docs/VISIBILITY.md](docs/VISIBILITY.md).
-
-## Contributing a profile
-
-Full instructions, including a step-by-step path through GitHub's web interface for
-people who do not use Git, are in [CONTRIBUTING.md](CONTRIBUTING.md). In short:
-
-1. Copy [`profiles/_template.json`](profiles/_template.json).
-2. Create `profiles/<your-slug>.json` with your content.
-3. Add `<your-slug>` to [`profiles/index.json`](profiles/index.json).
-4. Open a pull request and complete the checklist.
-
-Before contributing, read [docs/PRIVACY.md](docs/PRIVACY.md): you must have
-permission to share everything you submit, including photos, and submissions about
-other people need appropriate authorisation. This repository is public, and copies,
-forks and Git history may persist even after content is removed here.
-
-## Local preview
-
-There is no build step. Serve the folder with any static server:
+Requirements: Node.js 24 or later.
 
 ```bash
-# Python (bundled on most systems)
-python3 -m http.server 8000
-# then open http://localhost:8000/
+npm ci
+cp .env.example .env
+export SESSION_SECRET="$(openssl rand -hex 32)"
+export DATABASE_PATH=data/legacy.sqlite
+export APP_BASE_URL=http://localhost:3000
+export DEV_RECOVERY_LOG=true
+npm run migrate
+npm start
 ```
 
-To preview exactly as it will appear under the `/legacy/` project path:
+Open <http://localhost:3000>. `.env` is an example/reference; export variables
+in your shell or use your process manager's environment support. Never commit
+the real values.
+
+`DEV_RECOVERY_LOG=true` prints reset links to the server console and is rejected
+in production. It is explicitly local-only. Without SMTP or that development
+flag, the recovery page truthfully reports that delivery is not configured.
+
+## Moderator bootstrap
+
+There are no default credentials and users cannot promote themselves:
 
 ```bash
-mkdir -p /tmp/preview/legacy && cp -r . /tmp/preview/legacy
-cd /tmp/preview && python3 -m http.server 8000
-# then open http://localhost:8000/legacy/
+MODERATOR_EMAIL=moderator@example.org \
+MODERATOR_PASSWORD='use-a-unique-password-manager-value' \
+npm run moderator:create
 ```
 
-Opening the HTML files directly with `file://` will not work, because browsers block
-`fetch` of local JSON files.
+Run this through a trusted production shell with the same `DATABASE_PATH` and
+`SESSION_SECRET` configuration as the application. The command creates or
+promotes only the named account and hashes its password with Argon2id.
 
-## Validation and tests
-
-Node.js 20 or newer, no dependencies to install:
+## Commands
 
 ```bash
-npm run validate          # checks every profile and profiles/index.json
-npm run codeowners        # rewrites .github/CODEOWNERS from each profile's admins
-npm run codeowners:check  # fails if .github/CODEOWNERS has drifted
-npm test                  # unit tests for the schema, scripts and rendering helpers
+npm run migrate       # apply the idempotent SQLite schema
+npm start             # start the application
+npm test              # run all Node tests
+npm run validate      # validate retained JSON archive files
+npm run build         # validation and production source checks
+npm run test:e2e      # browser lifecycle test (requires its documented env)
+npm audit --omit=dev  # check runtime dependencies
 ```
 
-`npm run validate`, `npm run codeowners:check` and `npm test` all run
-automatically in CI on pull requests and on pushes to the default branch.
+## Validation status
 
-`npm run access-policies -- --site https://legacy.example.com` prints the access
-policies for a private instance's non-public profiles; it has nothing to do on a
-public instance. See [docs/VISIBILITY.md](docs/VISIBILITY.md).
+On 2026-09-21 the implementation was checked locally with:
 
-## Deployment
+- `npm run build` — profile validation and source checks passed.
+- `npm test` — all 50 tests passed.
+- `npm audit --omit=dev` — 0 known runtime vulnerabilities.
+- a migration smoke test and JSON import smoke test — passed; the imported
+  profile remained unowned and unpublished.
+- `npm run test:e2e` — owner editing/submission, moderator approval, public
+  directory and public detail passed in Chromium; four screenshots were
+  generated.
 
-The site is plain static files and can be published with GitHub Pages. The optional
-workflow in `.github/workflows/pages.yml` builds and deploys from the default branch
-and from manual dispatch only — pull request code is never deployed.
+These results do not verify external SMTP delivery, production TLS, persistent
+hosting, backups, monitoring or a real private removal contact. Those remain
+unconfigured deployment responsibilities.
 
-A maintainer must enable Pages before any deployment can succeed; the required
-settings are listed in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Nothing in this
-repository changes account or repository settings, and no claim is made here that a
-site is currently live.
+## Configuration
 
-## Licensing
+See `.env.example`.
 
-Two different things live in this repository, under two different terms:
+- `SESSION_SECRET`: required, at least 32 characters; use a random secret.
+- `DATABASE_PATH`: persistent SQLite path.
+- `APP_BASE_URL`: public origin; HTTPS is required in production.
+- `TRUST_PROXY=1`: only when one trusted reverse proxy terminates HTTPS.
+- `PUBLIC_REMOVAL_URL`: optional `https://` contact form or `mailto:` link. If
+  absent, the UI clearly says the private route is unconfigured.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`,
+  `SMTP_FROM`: configure all required SMTP fields together.
+- `DEV_RECOVERY_LOG`: local development only.
 
-- **Site code** (HTML, CSS, JavaScript, scripts, workflows, configuration) is
-  licensed under the [MIT License](LICENSE).
-- **Contributor content** — the stories, memories, images and other personal
-  material inside `profiles/` — is **not** placed under that licence and is **not**
-  released into the public domain. Authors keep their rights. See
-  [docs/CONTENT-LICENSE.md](docs/CONTENT-LICENSE.md) for the limited permission that
-  is needed simply to publish a profile here.
+No email provider, hosting provider, contact address, or production deployment
+is included or implied.
 
-## Community documents
+CI runs the same Playwright lifecycle and uploads `browser-screenshots` as a
+workflow artifact on every run. The test requires `BROWSER_OWNER_EMAIL`,
+`BROWSER_OWNER_PASSWORD`, `MODERATOR_EMAIL` and `MODERATOR_PASSWORD`; CI uses
+non-secret, isolated test-only values.
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) — how to submit, and what maintainers check
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — expected behaviour
-- [SECURITY.md](SECURITY.md) — what counts as a vulnerability and how to report it
-- [docs/PRIVACY.md](docs/PRIVACY.md) — consent, privacy and removal requests
-- [docs/VISIBILITY.md](docs/VISIBILITY.md) — public, private and restricted profiles
-- [docs/MODERATION.md](docs/MODERATION.md) — the review checklist maintainers use
-- [docs/BACKUPS.md](docs/BACKUPS.md) — backups and stewardship
-- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — Pages setup a maintainer must do
+## Data and moderation
+
+Profile states are `draft`, `pending`, `approved`, and `rejected`. An approved
+revision remains separate from later edits, so a pending or rejected edit never
+leaks publicly. Owners can unpublish or delete their profiles. Public list,
+search, slug, and ID endpoints query only `approved_revision_id`.
+
+Profiles retain the original required fields (`slug`, `name`, `introduction`,
+`story`, and `carryForward`) plus optional values, work, memories, image and
+fictional label. The latest `main` additions are also supported: a longer
+`autobiography`, general `links`, and consent-sensitive `family` relationships.
+The shared schema validates their sizes, relationship vocabulary, related
+profile slugs and URL schemes before any draft can be saved.
+
+The retained `profiles/example-river-okonkwo.json` is explicitly fictional. It
+is not inserted into the database automatically. See [CONTRIBUTING.md](CONTRIBUTING.md)
+for the provenance-aware import command and consent cautions.
+
+## Documentation
+
+- [Contributing](CONTRIBUTING.md)
+- [Privacy, consent, deletion and removal](docs/PRIVACY.md)
+- [Moderation](docs/MODERATION.md)
+- [Security](SECURITY.md)
+- [Backups and restore](docs/BACKUPS.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Content rights](docs/CONTENT-LICENSE.md)
+
+The MIT [LICENSE](LICENSE) covers repository code, not contributor stories,
+photos or other profile content.

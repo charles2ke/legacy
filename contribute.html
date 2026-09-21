@@ -4,8 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Contribute — Legacy</title>
-    <meta name="description" content="How to add a legacy profile using GitHub's web interface." />
+    <meta name="description" content="How to create and submit a moderated Legacy profile." />
     <link rel="stylesheet" href="assets/css/styles.css" />
+    <script type="module" src="assets/js/site.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
@@ -25,8 +26,8 @@
     <main id="main" class="wrap">
       <h1>Add a profile</h1>
       <p class="lede">
-        A profile is one small JSON file. You can create it entirely in your web
-        browser — no tools to install.
+        Create a private draft in the guided editor, preview it, and submit it for
+        moderator review when you are ready.
       </p>
 
       <h2>Before you start</h2>
@@ -38,7 +39,7 @@
         </li>
         <li>
           Do not include birth dates, addresses, private contact details, passwords or
-          account access. This repository is public.
+          account access. Approved profiles become public.
         </li>
         <li>
           Removal is possible, but copies, forks and Git history may persist elsewhere
@@ -48,41 +49,27 @@
 
       <h2>Steps</h2>
       <ol>
-        <li>
-          Open the
-          <a href="https://github.com/charles2ke/legacy/blob/main/profiles/_template.json">profile template</a>
-          and copy its contents.
-        </li>
-        <li>
-          Go to the
-          <a href="https://github.com/charles2ke/legacy/new/main/profiles">new file page</a>
-          for the <code>profiles/</code> folder and name your file
-          <code>your-slug.json</code>, using lowercase letters, numbers and hyphens.
-        </li>
-        <li>Paste the template, replace the example text with your own, and delete any optional fields you do not want.</li>
-        <li>
-          Add the same slug to
-          <a href="https://github.com/charles2ke/legacy/blob/main/profiles/index.json">profiles/index.json</a>.
-        </li>
-        <li>
-          Choose &ldquo;Create a new branch and start a pull request&rdquo;, then fill in
-          the checklist in the pull request template.
-        </li>
+        <li><a href="signup.html">Create an account</a> with a private email and strong password.</li>
+        <li>Use the dashboard editor to save and preview a private draft.</li>
+        <li>Confirm your publication consent and submit the draft for review.</li>
+        <li>Read private rejection feedback in your dashboard, if changes are needed.</li>
+        <li>Unpublish or delete your profile from the dashboard at any time.</li>
       </ol>
 
       <div class="actions">
-        <a class="button" href="https://github.com/charles2ke/legacy/blob/main/CONTRIBUTING.md">Full contributing guide</a>
+        <a class="button" href="signup.html">Create an account</a>
         <a class="button" href="https://github.com/charles2ke/legacy/blob/main/docs/PRIVACY.md">Privacy, consent &amp; removal</a>
       </div>
 
       <h2>What happens next</h2>
       <p>
-        Automated checks confirm the file is valid. A maintainer then reviews it
+        Server validation confirms the draft is valid. A moderator then reviews it
         against the moderation checklist — consent, private information,
         impersonation, harassment and unauthorised copyrighted material — and either
-        merges it or explains what needs changing. Maintainers are volunteers, so
+        approves it or explains what needs changing. Moderators are volunteers, so
         review may take a while.
       </p>
+      <p data-removal-contact>Loading removal contact…</p>
       <p class="note">
         Publishing here is not permanent hosting and does not verify anyone's
         identity. Keep your own copy of anything you care about.

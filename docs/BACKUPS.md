@@ -1,53 +1,37 @@
-# Backups and stewardship
+# Database backups and restore
 
-**Do not treat this repository as the only copy of anything you care about.**
+The SQLite database contains both public profiles and private account data.
+Backups therefore require encryption, access control, retention limits and
+secure deletion. Do not commit database files to Git.
 
-Repository maintenance and hosting continuity are **not guaranteed**. This project
-is run by volunteers on a platform we do not control. The repository could be
-archived, renamed, transferred, made private or deleted; GitHub Pages could be
-disabled; accounts can be suspended or abandoned. Nothing here promises permanent
-availability, and nothing here promises anyone will be remembered.
+## Backup
 
-## Keep your own copy
-
-- Download your profile JSON and any images, and store them somewhere you control.
-- Keep at least two copies in different places — for example a local drive and an
-  external disk or your own cloud storage.
-- Plain formats last longest: text, JSON, Markdown, JPEG/PNG, PDF, WAV/MP3.
-- Add a short readme next to your files saying what they are and when they were
-  made. Future readers, including future you, will need the context.
-- Check the files open correctly once a year.
-
-An easy full copy of the whole archive:
+Use SQLite's online backup command against the persistent production volume:
 
 ```bash
-git clone https://github.com/charles2ke/legacy.git
+mkdir -p backups
+sqlite3 data/legacy.sqlite ".backup 'backups/legacy-$(date +%F).sqlite'"
 ```
 
-This gives you every profile and the site itself. You are welcome to keep it, fork
-it, or mirror it.
+Copy the backup to an encrypted location controlled by the operator. Record a
+retention period appropriate to applicable law and operational needs. The
+application does not enforce backup retention automatically.
 
-## Tell someone
+## Restore test
 
-A backup nobody can find is not a backup. Write down, on paper or in a document a
-trusted person can reach:
+Stop writes, keep the current database as a rollback copy, and validate a
+restored copy before switching paths:
 
-- where your files are stored,
-- what you want shared, kept private, or deleted,
-- who you would like to look after them.
+```bash
+sqlite3 backups/legacy-YYYY-MM-DD.sqlite "PRAGMA integrity_check;"
+DATABASE_PATH=/tmp/legacy-restore.sqlite npm run migrate
+```
 
-**Do not write passwords or account access into this repository, or into any public
-document.** If you want someone to be able to access accounts, use the account
-provider's own legacy or inheritance features and a proper password manager's
-emergency access, and talk to a lawyer if the stakes are high.
+For an actual restore, copy the chosen backup to a new persistent path, set
+`DATABASE_PATH` to it, run `npm run migrate`, start the application, and verify
+sign-in plus approved-only public access. Do not test with production reset
+emails enabled.
 
-## Stewardship of this project
-
-- Maintainers are volunteers. Review, removal requests and hosting may be slow or,
-  at some point, may stop.
-- If the project is wound down, the intention is to announce it in the README and
-  leave the repository importable for as long as practical — but this is an
-  intention, not a commitment.
-- Because contributor content is not licensed for redistribution by default (see
-  [CONTENT-LICENSE.md](CONTENT-LICENSE.md)), anyone mirroring the archive should
-  respect the authors' rights and any removal requests.
+Deleted live records can remain in backups until those backups expire. The old
+static archive may also remain in Git history, forks and clones. Backups improve
+recoverability; they do not guarantee permanence.
