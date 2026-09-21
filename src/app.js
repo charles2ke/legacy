@@ -195,13 +195,16 @@ export async function createApp({ config, database, mailer, logger = console, au
         const token = randomBytes(32).toString('base64url');
         const tokenHash = createHash('sha256').update(token).digest('hex');
         const expiresAt = new Date(Date.now() + RESET_LIFETIME_MS).toISOString();
-        await database.run('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND used_at IS NULL', [
-          user.id,
-        ]);
-        await database.run(
-          'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
-          [user.id, tokenHash, expiresAt],
-        );
+        await database.transaction(async (transaction) => {
+          await transaction.run(
+            'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND used_at IS NULL',
+            [user.id],
+          );
+          await transaction.run(
+            'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
+            [user.id, tokenHash, expiresAt],
+          );
+        });
         try {
           await mailer.sendPasswordReset(user.email, token);
         } catch (error) {
@@ -404,10 +407,17 @@ export async function createApp({ config, database, mailer, logger = console, au
 
   app.get('/api/moderation/profiles', requireUser, requireModerator, async (req, res, next) => {
     try {
+      const page = Math.max(1, Number.parseInt(req.query.page || '1', 10) || 1);
+      const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit || '20', 10) || 20));
+      const count = await database.get(
+        `SELECT COUNT(*) AS total FROM profiles WHERE status IN ('pending', 'rejected')`,
+      );
       const rows = await database.all(
         `SELECT p.id, p.slug, p.status, p.updated_at, r.content_json
            FROM profiles p JOIN profile_revisions r ON r.id = p.draft_revision_id
-          WHERE p.status IN ('pending', 'rejected') ORDER BY p.updated_at ASC, p.id ASC`,
+          WHERE p.status IN ('pending', 'rejected') ORDER BY p.updated_at ASC, p.id ASC
+          LIMIT ? OFFSET ?`,
+        [limit, (page - 1) * limit],
       );
       res.json({
         profiles: rows.map((row) => ({
@@ -417,6 +427,7 @@ export async function createApp({ config, database, mailer, logger = console, au
           updatedAt: row.updated_at,
           draft: parseContent(row),
         })),
+        pagination: { page, limit, total: count.total, pages: Math.ceil(count.total / limit) },
       });
     } catch (error) {
       next(error);

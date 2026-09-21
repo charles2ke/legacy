@@ -179,6 +179,9 @@ test('moderation protects every public path and keeps approved revisions live du
 
   await createModerator(database);
   await login(moderator, 'moderator@example.test').expect(200);
+  const queue = await moderator.get('/api/moderation/profiles?limit=500').expect(200);
+  assert.equal(queue.body.pagination.limit, 50);
+  assert.equal(queue.body.pagination.total, 1);
   await mutate(moderator, 'post', `/api/moderation/profiles/${created.body.id}/decision`, {
     decision: 'approved',
     feedback: 'Approved after review.',
