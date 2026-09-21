@@ -37,6 +37,7 @@ async function fixture(t, { recoveryConfigured = false } = {}) {
     database,
     mailer,
     logger: { error() {}, info() {} },
+    authLimit: 1000,
   });
   return { app, database, sent };
 }
@@ -109,8 +110,8 @@ test('database transactions serialize concurrent writers without cross-rollback'
   t.after(() => database.close());
   await Promise.all(
     Array.from({ length: 5 }, (_, index) =>
-      database.transaction(async () => {
-        await database.run('INSERT INTO audit_log (action) VALUES (?)', [`concurrent.${index}`]);
+      database.transaction(async (transaction) => {
+        await transaction.run('INSERT INTO audit_log (action) VALUES (?)', [`concurrent.${index}`]);
         await new Promise((resolve) => setTimeout(resolve, 5));
       }),
     ),

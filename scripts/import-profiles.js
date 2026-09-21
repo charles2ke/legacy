@@ -28,21 +28,21 @@ try {
     }
     const existing = await database.get('SELECT id FROM profiles WHERE slug = ?', [slug]);
     if (existing) throw new Error(`${slug}: already exists in the database`);
-    await database.transaction(async () => {
-      const result = await database.run(
+    await database.transaction(async (transaction) => {
+      const result = await transaction.run(
         `INSERT INTO profiles (owner_user_id, slug, status) VALUES (NULL, ?, 'draft')`,
         [slug],
       );
-      const revision = await database.run(
+      const revision = await transaction.run(
         `INSERT INTO profile_revisions (profile_id, content_json, provenance)
          VALUES (?, ?, ?)`,
         [result.lastID, JSON.stringify(profile), provenance],
       );
-      await database.run('UPDATE profiles SET draft_revision_id = ? WHERE id = ?', [
+      await transaction.run('UPDATE profiles SET draft_revision_id = ? WHERE id = ?', [
         revision.lastID,
         result.lastID,
       ]);
-      await database.run(
+      await transaction.run(
         `INSERT INTO audit_log (profile_id, action, details_json)
          VALUES (?, 'profile.imported_unowned', ?)`,
         [result.lastID, JSON.stringify({ provenance })],

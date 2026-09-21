@@ -12,30 +12,49 @@ export async function openDatabase(filename) {
   raw.configure('busyTimeout', 5000);
   let transactionTail = Promise.resolve();
 
+  function runRaw(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      raw.run(sql, params, function callback(error) {
+        if (error) reject(error);
+        else resolve({ lastID: this.lastID, changes: this.changes });
+      });
+    });
+  }
+  function getRaw(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      raw.get(sql, params, (error, row) => (error ? reject(error) : resolve(row)));
+    });
+  }
+  function allRaw(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      raw.all(sql, params, (error, rows) => (error ? reject(error) : resolve(rows)));
+    });
+  }
+  function execRaw(sql) {
+    return new Promise((resolve, reject) => raw.exec(sql, (error) => (error ? reject(error) : resolve())));
+  }
+
+  const transactionDatabase = { run: runRaw, get: getRaw, all: allRaw, exec: execRaw };
   const database = {
     raw,
-    run(sql, params = []) {
-      return new Promise((resolve, reject) => {
-        raw.run(sql, params, function callback(error) {
-          if (error) reject(error);
-          else resolve({ lastID: this.lastID, changes: this.changes });
-        });
-      });
+    async run(sql, params = []) {
+      await transactionTail;
+      return runRaw(sql, params);
     },
-    get(sql, params = []) {
-      return new Promise((resolve, reject) => {
-        raw.get(sql, params, (error, row) => (error ? reject(error) : resolve(row)));
-      });
+    async get(sql, params = []) {
+      await transactionTail;
+      return getRaw(sql, params);
     },
-    all(sql, params = []) {
-      return new Promise((resolve, reject) => {
-        raw.all(sql, params, (error, rows) => (error ? reject(error) : resolve(rows)));
-      });
+    async all(sql, params = []) {
+      await transactionTail;
+      return allRaw(sql, params);
     },
-    exec(sql) {
-      return new Promise((resolve, reject) => raw.exec(sql, (error) => (error ? reject(error) : resolve())));
+    async exec(sql) {
+      await transactionTail;
+      return execRaw(sql);
     },
-    close() {
+    async close() {
+      await transactionTail;
       return new Promise((resolve, reject) => raw.close((error) => (error ? reject(error) : resolve())));
     },
     async transaction(work) {
@@ -47,13 +66,13 @@ export async function openDatabase(filename) {
       await previous;
       let started = false;
       try {
-        await database.exec('BEGIN IMMEDIATE');
+        await execRaw('BEGIN IMMEDIATE');
         started = true;
-        const result = await work();
-        await database.exec('COMMIT');
+        const result = await work(transactionDatabase);
+        await execRaw('COMMIT');
         return result;
       } catch (error) {
-        if (started) await database.exec('ROLLBACK').catch(() => {});
+        if (started) await execRaw('ROLLBACK').catch(() => {});
         throw error;
       } finally {
         release();
@@ -61,6 +80,6 @@ export async function openDatabase(filename) {
     },
   };
 
-  await database.exec(await readFile(migrationPath, 'utf8'));
+  await execRaw(await readFile(migrationPath, 'utf8'));
   return database;
 }

@@ -1,5 +1,7 @@
 import session from 'express-session';
 
+import { SESSION_MAX_AGE_MS } from './config.js';
+
 export class SqliteSessionStore extends session.Store {
   constructor(database) {
     super();
@@ -16,12 +18,15 @@ export class SqliteSessionStore extends session.Store {
   set(sid, value, callback = () => {}) {
     const expiresAt = value.cookie?.expires
       ? new Date(value.cookie.expires).getTime()
-      : Date.now() + 8 * 60 * 60 * 1000;
+      : Date.now() + SESSION_MAX_AGE_MS;
     this.database
-      .run(
-        `INSERT INTO sessions (sid, sess, expires_at) VALUES (?, ?, ?)
-         ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expires_at = excluded.expires_at`,
-        [sid, JSON.stringify(value), expiresAt],
+      .run('DELETE FROM sessions WHERE expires_at <= ?', [Date.now()])
+      .then(() =>
+        this.database.run(
+          `INSERT INTO sessions (sid, sess, expires_at) VALUES (?, ?, ?)
+           ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expires_at = excluded.expires_at`,
+          [sid, JSON.stringify(value), expiresAt],
+        ),
       )
       .then(() => callback())
       .catch(callback);
@@ -35,4 +40,3 @@ export class SqliteSessionStore extends session.Store {
     this.set(sid, value, callback);
   }
 }
-

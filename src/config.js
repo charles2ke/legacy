@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+export const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+
 function boolean(value, fallback = false) {
   if (value === undefined || value === '') return fallback;
   return value === '1' || value.toLowerCase() === 'true';
@@ -59,4 +61,3 @@ export function loadConfig(env = process.env) {
       : null,
   };
 }
-

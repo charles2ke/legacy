@@ -10,10 +10,10 @@ import session from 'express-session';
 import helmet from 'helmet';
 
 import { validateProfile } from '../assets/js/profile-schema.js';
+import { SESSION_MAX_AGE_MS } from './config.js';
 import { SqliteSessionStore } from './session-store.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESET_LIFETIME_MS = 30 * 60 * 1000;
 
 function jsonError(res, status, message, details) {
@@ -22,6 +22,14 @@ function jsonError(res, status, message, details) {
 
 function normalizeEmail(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function validEmail(email) {
+  if (!email || email.length > 254) return false;
+  if ([...email].some((character) => /\s/.test(character))) return false;
+  const at = email.indexOf('@');
+  const dot = email.lastIndexOf('.');
+  return at > 0 && at === email.lastIndexOf('@') && dot > at + 1 && dot < email.length - 1;
 }
 
 function validPassword(password) {
@@ -73,7 +81,7 @@ async function ownedProfile(database, profileId, userId) {
   );
 }
 
-export async function createApp({ config, database, mailer, logger = console }) {
+export async function createApp({ config, database, mailer, logger = console, authLimit = 10 }) {
   const app = express();
   if (config.trustProxy) app.set('trust proxy', 1);
   app.disable('x-powered-by');
@@ -100,7 +108,7 @@ export async function createApp({ config, database, mailer, logger = console }) 
         httpOnly: true,
         sameSite: 'lax',
         secure: config.production,
-        maxAge: 8 * 60 * 60 * 1000,
+        maxAge: SESSION_MAX_AGE_MS,
       },
     }),
   );
@@ -111,7 +119,7 @@ export async function createApp({ config, database, mailer, logger = console }) 
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: config.nodeEnv === 'test' ? 1000 : 10,
+    limit: authLimit,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     message: { error: 'Too many attempts; try again later' },
@@ -127,7 +135,7 @@ export async function createApp({ config, database, mailer, logger = console }) 
   app.post('/api/auth/signup', authLimiter, async (req, res, next) => {
     try {
       const email = normalizeEmail(req.body.email);
-      if (!EMAIL_PATTERN.test(email) || email.length > 254) return jsonError(res, 400, 'Enter a valid email');
+      if (!validEmail(email)) return jsonError(res, 400, 'Enter a valid email');
       if (!validPassword(req.body.password)) {
         return jsonError(res, 400, 'Password must be between 12 and 200 characters');
       }
@@ -222,10 +230,10 @@ export async function createApp({ config, database, mailer, logger = console }) 
       );
       if (!reset) return jsonError(res, 400, 'Reset link is invalid or expired');
       const passwordHash = await argon2.hash(req.body.password, { type: argon2.argon2id });
-      await database.transaction(async () => {
-        await database.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, reset.user_id]);
-        await database.run('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?', [reset.id]);
-        await database.run(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`, [reset.user_id]);
+      await database.transaction(async (transaction) => {
+        await transaction.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, reset.user_id]);
+        await transaction.run('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?', [reset.id]);
+        await transaction.run(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`, [reset.user_id]);
       });
       res.json({ message: 'Password updated. Sign in with the new password.' });
     } catch (error) {
@@ -279,20 +287,20 @@ export async function createApp({ config, database, mailer, logger = console }) 
       const parsed = parseProfile(req.body.profile);
       if (parsed.errors) return jsonError(res, 400, 'Profile validation failed', parsed.errors);
       try {
-        const profile = await database.transaction(async () => {
-          const inserted = await database.run(
+        const profile = await database.transaction(async (transaction) => {
+          const inserted = await transaction.run(
             'INSERT INTO profiles (owner_user_id, slug) VALUES (?, ?)',
             [req.session.userId, parsed.profile.slug],
           );
-          const revision = await database.run(
+          const revision = await transaction.run(
             'INSERT INTO profile_revisions (profile_id, content_json, created_by_user_id) VALUES (?, ?, ?)',
             [inserted.lastID, JSON.stringify(parsed.profile), req.session.userId],
           );
-          await database.run('UPDATE profiles SET draft_revision_id = ? WHERE id = ?', [
+          await transaction.run('UPDATE profiles SET draft_revision_id = ? WHERE id = ?', [
             revision.lastID,
             inserted.lastID,
           ]);
-          await audit(database, req.session.userId, inserted.lastID, 'profile.created');
+          await audit(transaction, req.session.userId, inserted.lastID, 'profile.created');
           return inserted;
         });
         res.status(201).json({ id: profile.lastID, status: 'draft' });
@@ -321,17 +329,17 @@ export async function createApp({ config, database, mailer, logger = console }) 
       ]);
       if (slugConflict) return jsonError(res, 409, 'That profile address is already used');
       try {
-        await database.transaction(async () => {
-          const revision = await database.run(
+        await database.transaction(async (transaction) => {
+          const revision = await transaction.run(
             'INSERT INTO profile_revisions (profile_id, content_json, created_by_user_id) VALUES (?, ?, ?)',
             [current.id, JSON.stringify(parsed.profile), req.session.userId],
           );
-          await database.run(
+          await transaction.run(
             `UPDATE profiles SET slug = ?, draft_revision_id = ?, status = 'draft',
              consented_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_user_id = ?`,
             [parsed.profile.slug, revision.lastID, current.id, req.session.userId],
           );
-          await audit(database, req.session.userId, current.id, 'profile.draft_saved');
+          await audit(transaction, req.session.userId, current.id, 'profile.draft_saved');
         });
       } catch (error) {
         if (error.code === 'SQLITE_CONSTRAINT') return jsonError(res, 409, 'That profile address is already used');
@@ -431,26 +439,26 @@ export async function createApp({ config, database, mailer, logger = console }) 
         [req.params.id],
       );
       if (!profile || !profile.consented_at) return jsonError(res, 409, 'Profile is not awaiting review');
-      await database.transaction(async () => {
-        await database.run(
+      await database.transaction(async (transaction) => {
+        await transaction.run(
           `INSERT INTO moderation_decisions
              (profile_id, revision_id, moderator_user_id, decision, feedback)
            VALUES (?, ?, ?, ?, ?)`,
           [profile.id, profile.draft_revision_id, req.session.userId, req.body.decision, feedback || null],
         );
         if (req.body.decision === 'approved') {
-          await database.run(
+          await transaction.run(
             `UPDATE profiles SET approved_revision_id = draft_revision_id, status = 'approved',
              updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
             [profile.id],
           );
         } else {
-          await database.run(
+          await transaction.run(
             `UPDATE profiles SET status = 'rejected', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
             [profile.id],
           );
         }
-        await audit(database, req.session.userId, profile.id, `profile.${req.body.decision}`, {
+        await audit(transaction, req.session.userId, profile.id, `profile.${req.body.decision}`, {
           revisionId: profile.draft_revision_id,
         });
       });
@@ -542,7 +550,13 @@ export async function createApp({ config, database, mailer, logger = console }) 
   app.get('/api/profiles/id/:value', (req, res, next) => publicProfile(req, res, next, true));
   app.get('/api/profiles/:value', (req, res, next) => publicProfile(req, res, next, false));
 
-  app.use('/assets', express.static(path.join(root, 'assets'), { index: false }));
+  const pageLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 300,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+  });
+  app.use('/assets', pageLimiter, express.static(path.join(root, 'assets'), { index: false }));
   for (const page of [
     'index.html',
     'profiles.html',
@@ -556,9 +570,9 @@ export async function createApp({ config, database, mailer, logger = console }) 
     'editor.html',
     'moderator.html',
   ]) {
-    app.get(`/${page}`, (req, res) => res.sendFile(path.join(root, page)));
+    app.get(`/${page}`, pageLimiter, (req, res) => res.sendFile(path.join(root, page)));
   }
-  app.get('/', (req, res) => res.sendFile(path.join(root, 'index.html')));
+  app.get('/', pageLimiter, (req, res) => res.sendFile(path.join(root, 'index.html')));
 
   app.use((req, res) => jsonError(res, 404, 'Not found'));
   app.use((error, req, res, next) => {
