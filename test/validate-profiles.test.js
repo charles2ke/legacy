@@ -229,6 +229,32 @@ test('an unrecognised instance is reported rather than silently trusted', async 
   assert.ok(result.errors.some((error) => error.includes('is not allowed on a "public" instance')));
 });
 
+test('a file the validator would skip is reported, because it is published anyway', async (t) => {
+  // Everything in profiles/ is uploaded to the site. A file that is not read is
+  // still served, so "not a profile" has to be an error rather than a silent skip.
+  for (const name of ['_river.json', 'river.json.txt', 'River.json', 'notes.md']) {
+    const dir = await fixture(t, {
+      files: { 'someone.json': exampleProfile('someone'), [name]: { ...exampleProfile('x'), visibility: 'private' } },
+      index: ['someone'],
+    });
+    const result = await validateProfilesDirectory(dir);
+    assert.equal(result.valid, false, `${name} should be refused`);
+    assert.ok(
+      result.errors.some((error) => error.startsWith(`${name}: is not a profile`)),
+      `${name} should say why`,
+    );
+  }
+});
+
+test('the two reserved names are not reported as strays', async (t) => {
+  const dir = await fixture(t, {
+    files: { 'someone.json': exampleProfile('someone') },
+    index: ['someone'],
+  });
+  const result = await validateProfilesDirectory(dir);
+  assert.deepEqual(result.errors, []);
+});
+
 test('a template that asks to be private is reported', async (t) => {
   const dir = await fixture(t);
   await writeFile(

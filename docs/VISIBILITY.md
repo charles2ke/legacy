@@ -33,7 +33,10 @@ Profile validation failed:
 ```
 
 This runs in CI on every pull request, so a non-public profile cannot be merged
-here by accident.
+here by accident. Validation also refuses any file in `profiles/` that is not
+`index.json`, `_template.json` or `<slug>.json`, because everything in that
+directory is uploaded to the site: a file the validator skipped would still be
+served.
 
 ### Instances
 
@@ -139,10 +142,12 @@ confirming on any other host before trusting it:
 - **The most specific path wins, and inherits nothing.** A policy on
   `/profiles/few.json` replaces the site-wide one for that file rather than
   adding to it, which is what lets each profile carry its own allowlist.
-- **Access is deny by default, and an allow policy with no include rules matches
-  nobody.** That is why the generated policy for a profile with no allowlist of
-  its own is safe to apply as it stands: it refuses everyone until you fill it
-  in, rather than falling back to the catch-all.
+- **Access denies by default, and every policy must include somebody.** A policy
+  with no include rule is not something you can create, so "nobody may read this
+  yet" is written the other way round: the generator emits a *deny* covering
+  everyone. That can be applied as printed and shuts the path until you replace
+  it — which matters, because the alternative, leaving the application out, drops
+  the file back to the catch-all.
 
 This works with the site as it is. When a viewer is refused a profile's JSON, the
 list page simply leaves that profile out, and the profile page reports that it
@@ -180,12 +185,17 @@ allowlist split into the shapes a host matches on:
 }
 ```
 
-An application with `"needsInclude": true` has an empty allowlist, which admits
-nobody — the safe way to be incomplete. Every `private` profile starts that way,
-because the profile itself does not say which host identities belong to the
-repository's members. Each one also produces a line in `warnings`, so a
-half-finished configuration is loud rather than quietly open. Fill the include in
-before applying the manifest.
+An application with `"needsInclude": true` has no allowlist of its own, so it is
+emitted as `"decision": "deny"` over everyone. Every `private` profile starts
+that way, because the profile itself does not say which host identities belong to
+the repository's members. Each one also produces a line in `warnings`, so a
+half-finished configuration is loud rather than quietly open.
+
+Apply those denials as they stand if you are configuring the host in stages —
+they are correct, just useless to the people who should be able to read the
+profile. Replace each one with an allow policy naming those people. Do not simply
+leave the application out: the file would then fall back to the site-wide policy,
+which has to admit the viewers of every restricted profile.
 
 **It prints a manifest; it does not configure anything.** A maintainer applies it
 in the host's dashboard or through their own infrastructure tooling. For

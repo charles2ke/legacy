@@ -32,9 +32,11 @@ test('a private profile is gated shut until a maintainer fills in its allowlist'
   const [application] = manifest.applications;
   assert.equal(application.path, '/profiles/quiet.json');
   assert.equal(application.visibility, 'private');
-  // Empty include: admits nobody, rather than quietly admitting everyone the
-  // site-wide policy lets in.
-  assert.deepEqual(application.include, { emails: [], emailDomains: [], groups: [] });
+  // Written as a deny covering everyone, not an allow covering no one: hosts
+  // require every policy to include somebody, so an empty allow could not be
+  // applied at all and the path would fall back to the site-wide policy.
+  assert.equal(application.decision, 'deny');
+  assert.deepEqual(application.include, { everyone: true });
   assert.equal(application.needsInclude, true);
   assert.ok(manifest.warnings.some((warning) => warning.startsWith('quiet:')));
 });
@@ -80,14 +82,30 @@ test('entries that are not valid identifiers are left out of the policy', () => 
   assert.deepEqual(application.include.emails, ['good@example.com']);
 });
 
-test('a restricted profile with no usable allowlist yields an empty allow rule', () => {
-  // An empty include list denies everyone, which is the safe direction. The
-  // schema separately refuses to accept such a profile in the first place.
+test('a restricted profile with no usable allowlist is denied to everyone', () => {
+  // The schema separately refuses to accept such a profile. If one reaches here
+  // anyway, the policy must still be applicable and must still close the path.
   const manifest = buildAccessPolicies([restricted('few', [])]);
   const [application] = manifest.applications;
-  assert.deepEqual(application.include, { emails: [], emailDomains: [], groups: [] });
+  assert.equal(application.decision, 'deny');
+  assert.deepEqual(application.include, { everyone: true });
   assert.equal(application.needsInclude, true);
   assert.ok(manifest.warnings.some((warning) => warning.startsWith('few:')));
+});
+
+test('a slug that is not a slug gets no policy at all', () => {
+  // Hosts match application paths with wildcards, so a slug carrying one would
+  // gate more than its own profile.
+  const manifest = buildAccessPolicies([
+    { slug: '*', profile: { visibility: 'private' } },
+    { slug: '../etc', profile: { visibility: 'private' } },
+    { slug: 7, profile: { visibility: 'private' } },
+    { slug: 'quiet', profile: { visibility: 'private' } },
+  ]);
+  assert.deepEqual(
+    manifest.applications.map((application) => application.path),
+    ['/profiles/quiet.json'],
+  );
 });
 
 test('the manifest says it is only a manifest, and records the site', () => {

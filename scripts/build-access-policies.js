@@ -13,7 +13,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { isAllowedViewer, profileVisibility } from '../assets/js/profile-schema.js';
+import { SLUG_PATTERN, isAllowedViewer, profileVisibility } from '../assets/js/profile-schema.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const profilesDir = path.join(repoRoot, 'profiles');
@@ -44,12 +44,17 @@ function groupViewers(allowedViewers) {
  * would not hold: that policy has to admit the outside viewers named by
  * restricted profiles, because they need the page and the scripts to read
  * anything at all — and once it admits them, they can ask for any private
- * profile's JSON directly. A private profile therefore gets its own application
- * with an empty allowlist, which admits nobody until a maintainer fills it in.
+ * profile's JSON directly. A private profile therefore gets its own application,
+ * closed until a maintainer says who may read it.
+ *
+ * The slug is checked here as well as in the schema, because hosts match
+ * application paths with wildcards and a slug containing one would gate more
+ * than its own profile.
  * @param {{ slug: string, profile: unknown }[]} entries
  */
 export function buildAccessPolicies(entries, { site } = {}) {
   const applications = entries
+    .filter((entry) => typeof entry?.slug === 'string' && SLUG_PATTERN.test(entry.slug))
     .filter((entry) => profileVisibility(entry.profile) !== 'public')
     .map((entry) => {
       const visibility = profileVisibility(entry.profile);
@@ -60,10 +65,12 @@ export function buildAccessPolicies(entries, { site } = {}) {
         name: `Legacy profile: ${entry.slug}`,
         path: `/profiles/${entry.slug}.json`,
         visibility,
-        decision: 'allow',
-        include,
-        // An empty allowlist matches nobody, which is the safe way to be
-        // incomplete. The warning below stops it from being missed.
+        // Every Access policy has to include somebody, so "nobody may read this
+        // yet" is written as a deny covering everyone rather than an allow
+        // covering no one — which no host would accept. It can be applied as it
+        // stands, and it shuts the path until the warning below is acted on.
+        decision: empty ? 'deny' : 'allow',
+        include: empty ? { everyone: true } : include,
         needsInclude: empty,
       };
     })
@@ -74,8 +81,9 @@ export function buildAccessPolicies(entries, { site } = {}) {
     .map(
       (application) =>
         `${application.slug}: ${JSON.stringify(application.visibility)} profile has no allowlist of its own, so ` +
-        `this policy admits nobody. Give ${application.path} an include covering the people who may read it ` +
-        '— do not leave it to the site-wide policy, which has to admit the viewers of restricted profiles.',
+        `${application.path} is set to deny everyone. Replace that with an allow policy naming the people who ` +
+        'may read it — do not simply drop the application, because the site-wide policy has to admit the ' +
+        'viewers of restricted profiles.',
     );
 
   return {

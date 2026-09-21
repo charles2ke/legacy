@@ -59,7 +59,9 @@ Then open a pull request from a branch.
 The fields, limits and required values are documented in the
 [profile format table](README.md#profile-format). In addition:
 
-- `slug` must match the file name and must not already exist.
+- `slug` must match the file name and must not already exist. The file must be
+  named `<slug>.json`: `profiles/` may hold nothing else besides `index.json` and
+  `_template.json`, because every file in it is published.
 - Links may only use `https:`, `http:` or `mailto:`. Other schemes are rejected.
 - Images need `alt` text describing the picture for people who cannot see it.
 - An image `src` must be an `https`/`http` URL, or a file you committed under

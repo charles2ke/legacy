@@ -34,10 +34,22 @@ export async function validateProfilesDirectory(
   // reported as-is, so every message below names a real mode.
   instance = normaliseInstance(instance);
   const errors = [];
-  const files = (await readdir(dir))
-    .filter((file) => file.endsWith('.json'))
-    .filter((file) => file !== 'index.json' && !file.startsWith('_'))
-    .sort();
+  // Everything in profiles/ is published, so a file the validator skips would
+  // still be served. Only the two reserved names and <slug>.json are allowed,
+  // and anything else is reported rather than quietly ignored — otherwise
+  // profiles/_river.json could carry visibility "private" past every check and
+  // be uploaded with the rest of the site.
+  const directoryFiles = await readdir(dir);
+  const reserved = new Set(['index.json', '_template.json']);
+  const isProfileFile = (file) => file.endsWith('.json') && SLUG_PATTERN.test(file.slice(0, -'.json'.length));
+  for (const file of directoryFiles.filter((file) => !reserved.has(file) && !isProfileFile(file)).sort()) {
+    errors.push(
+      `${file}: is not a profile. profiles/ may only contain index.json, _template.json and <slug>.json, ` +
+        'and every file here is published whether or not it is checked.',
+    );
+  }
+
+  const files = directoryFiles.filter((file) => !reserved.has(file) && isProfileFile(file)).sort();
 
   const entries = [];
   for (const file of files) {
