@@ -64,9 +64,10 @@ async function audit(database, actorUserId, profileId, action, details = null) {
 
 async function ownedProfile(database, profileId, userId) {
   return database.get(
-    `SELECT p.*, r.content_json AS draft_json
+    `SELECT p.*, r.content_json AS draft_json, a.content_json AS approved_json
        FROM profiles p
        LEFT JOIN profile_revisions r ON r.id = p.draft_revision_id
+       LEFT JOIN profile_revisions a ON a.id = p.approved_revision_id
       WHERE p.id = ? AND p.owner_user_id = ?`,
     [profileId, userId],
   );
@@ -225,7 +226,7 @@ export async function createApp({ config, database, mailer, logger = console }) 
       try {
         await database.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, reset.user_id]);
         await database.run('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?', [reset.id]);
-        await database.run('DELETE FROM sessions');
+        await database.run(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`, [reset.user_id]);
         await database.exec('COMMIT');
       } catch (error) {
         await database.exec('ROLLBACK');
@@ -315,6 +316,10 @@ export async function createApp({ config, database, mailer, logger = console }) 
       if (!current) return jsonError(res, 404, 'Profile not found');
       const parsed = parseProfile(req.body.profile);
       if (parsed.errors) return jsonError(res, 400, 'Profile validation failed', parsed.errors);
+      const approved = parseContent(current, 'approved_json');
+      if (approved && approved.slug !== parsed.profile.slug) {
+        return jsonError(res, 400, 'The address of a published profile cannot be changed');
+      }
       const slugConflict = await database.get('SELECT id FROM profiles WHERE slug = ? AND id != ?', [
         parsed.profile.slug,
         current.id,
@@ -496,7 +501,7 @@ export async function createApp({ config, database, mailer, logger = console }) 
         params,
       );
       const rows = await database.all(
-        `SELECT p.id, p.slug, r.content_json FROM profiles p
+        `SELECT p.id, json_extract(r.content_json, '$.slug') AS slug, r.content_json FROM profiles p
          JOIN profile_revisions r ON r.id = p.approved_revision_id
          WHERE p.approved_revision_id IS NOT NULL ${where}
          ORDER BY lower(json_extract(r.content_json, '$.name')) ASC, p.slug ASC
@@ -522,12 +527,13 @@ export async function createApp({ config, database, mailer, logger = console }) 
     }
   });
 
-  async function publicProfile(req, res, next, column) {
+  async function publicProfile(req, res, next, byId) {
     try {
       const row = await database.get(
-        `SELECT p.id, p.slug, r.content_json FROM profiles p
+        `SELECT p.id, json_extract(r.content_json, '$.slug') AS slug, r.content_json FROM profiles p
          JOIN profile_revisions r ON r.id = p.approved_revision_id
-         WHERE p.${column} = ? AND p.approved_revision_id IS NOT NULL`,
+         WHERE ${byId ? 'p.id' : `json_extract(r.content_json, '$.slug')`} = ?
+           AND p.approved_revision_id IS NOT NULL`,
         [req.params.value],
       );
       if (!row) return jsonError(res, 404, 'Profile not found');
@@ -536,8 +542,8 @@ export async function createApp({ config, database, mailer, logger = console }) 
       next(error);
     }
   }
-  app.get('/api/profiles/id/:value', (req, res, next) => publicProfile(req, res, next, 'id'));
-  app.get('/api/profiles/:value', (req, res, next) => publicProfile(req, res, next, 'slug'));
+  app.get('/api/profiles/id/:value', (req, res, next) => publicProfile(req, res, next, true));
+  app.get('/api/profiles/:value', (req, res, next) => publicProfile(req, res, next, false));
 
   app.use('/assets', express.static(path.join(root, 'assets'), { index: false }));
   for (const page of [
@@ -566,4 +572,3 @@ export async function createApp({ config, database, mailer, logger = console }) 
   });
   return app;
 }
-

@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   validate:
-    name: Validate profiles and run tests
+    name: Build, audit and test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,8 +19,13 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - name: Validate profiles
-        run: npm run validate
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev
+      - name: Validate production build
+        run: npm run build
       - name: Run tests
         run: npm test

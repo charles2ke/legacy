@@ -190,6 +190,10 @@ test('moderation protects every public path and keeps approved revisions live du
   assert.equal((await outsider.get('/api/profiles/river-song')).body.story, 'A plain-text story.');
   assert.equal(JSON.stringify((await outsider.get('/api/profiles')).body).includes('private passage'), false);
 
+  await mutate(owner, 'put', `/api/me/profiles/${created.body.id}`, {
+    profile: { ...changed, slug: 'pending-secret-address' },
+  }).expect(400);
+
   await mutate(owner, 'post', `/api/me/profiles/${created.body.id}/unpublish`).expect(204);
   await supertest(app).get('/api/profiles/river-song').expect(404);
   await mutate(owner, 'delete', `/api/me/profiles/${created.body.id}`).expect(204);
@@ -257,19 +261,26 @@ test('recovery is generic, configurable, expiring and single use', async (t) => 
   }).expect(200);
   assert.equal(unavailable.body.recoveryConfigured, false);
 
-  const { app, sent } = await fixture(t, { recoveryConfigured: true });
+  const { app, database, sent } = await fixture(t, { recoveryConfigured: true });
   const agent = supertest.agent(app);
   await signup(agent, 'owner@example.test').expect(201);
   const known = await mutate(agent, 'post', '/api/auth/request-reset', { email: 'owner@example.test' }).expect(200);
   const unknown = await mutate(agent, 'post', '/api/auth/request-reset', { email: 'unknown@example.test' }).expect(200);
   assert.equal(known.body.message, unknown.body.message);
   assert.equal(sent.length, 1);
+  await database.run(`UPDATE password_reset_tokens SET expires_at = '2000-01-01T00:00:00.000Z'`);
   await mutate(agent, 'post', '/api/auth/reset-password', {
     token: sent[0].token,
     password: 'a replacement password',
+  }).expect(400);
+  await mutate(agent, 'post', '/api/auth/request-reset', { email: 'owner@example.test' }).expect(200);
+  assert.equal(sent.length, 2);
+  await mutate(agent, 'post', '/api/auth/reset-password', {
+    token: sent[1].token,
+    password: 'a replacement password',
   }).expect(200);
   await mutate(agent, 'post', '/api/auth/reset-password', {
-    token: sent[0].token,
+    token: sent[1].token,
     password: 'another replacement password',
   }).expect(400);
 });

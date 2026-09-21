@@ -1,49 +1,48 @@
-# Deployment (GitHub Pages)
+# Deployment
 
-The site is static files with no build step, so "building" is just uploading the
-repository contents as a Pages artifact.
+No provider is selected, provisioned or authorized by this repository. GitHub
+Pages cannot run Express, SQLite, sessions, migrations or recovery email, so the
+former Pages deployment workflow has been removed. Static Pages hosting is not
+a deployment of the full platform.
 
-**Nothing in this repository enables Pages or changes any account or repository
-setting, and no claim is made that a site is currently live.** A maintainer must
-perform the steps below manually before any deployment can succeed.
+## Production requirements
 
-## Maintainer setup (manual, one time)
+- Node.js 24 or later
+- an HTTPS reverse proxy or platform ingress
+- a persistent, access-controlled volume for `DATABASE_PATH`
+- durable encrypted database backups
+- a random `SESSION_SECRET` of at least 32 characters
+- `APP_BASE_URL` using the real HTTPS origin
+- SMTP credentials if password recovery email is expected to work
+- an optional real `PUBLIC_REMOVAL_URL`
 
-1. Open the repository's **Settings → Pages**.
-2. Under **Build and deployment → Source**, choose **GitHub Actions**.
-3. Leave the default `github.io` domain, or configure a custom domain there if you
-   prefer. With the default domain the site is served from a project path:
-   `https://<owner>.github.io/legacy/`. All links and data paths in this project
-   are relative, so both the project path and a domain root work without changes.
-4. Optionally, under **Settings → Environments → github-pages**, restrict
-   deployments to the default branch.
+Install reproducibly and initialize the schema:
 
-## How deployment runs
+```bash
+npm ci --omit=dev
+NODE_ENV=production npm run migrate
+NODE_ENV=production npm start
+```
 
-`.github/workflows/pages.yml` runs only on:
+Create the first moderator through a trusted shell as documented in the README.
+Never expose moderator bootstrap variables to client code or CI logs.
 
-- pushes to the default branch, and
-- manual runs (**Actions → Deploy site to GitHub Pages → Run workflow**).
+If HTTPS terminates at exactly one trusted proxy, set `TRUST_PROXY=1`; otherwise
+leave it off. Use one application instance with SQLite unless the chosen
+platform provides a carefully tested shared-database design. Run migrations
+before starting new code and back up before upgrades.
 
-It never runs on `pull_request`, so code from untrusted pull requests is never
-deployed. It uses the official `actions/upload-pages-artifact` and
-`actions/deploy-pages` flow, with `permissions: contents: read, pages: write,
-id-token: write` — the minimum that flow requires — and a single concurrency group
-so deployments do not overlap.
+## Email
 
-Validation and tests (`.github/workflows/ci.yml`) run separately with
-`permissions: contents: read` and do run on pull requests.
+Configure every required SMTP field in `.env.example`. A successful local test
+with `DEV_RECOVERY_LOG` does not verify SMTP delivery. Test the selected
+provider, sender authorization, bounce behavior and abuse controls before
+claiming recovery email works.
 
-## If a deployment fails
+## CI and external blockers
 
-- "Pages is not enabled" or a 404 from the deploy step: Source is not yet set to
-  **GitHub Actions** (step 2 above).
-- A blank profile list on the published site: check that `profiles/index.json` is
-  present in the artifact and that browser devtools show the JSON requests
-  resolving under the project path.
-
-## Alternative hosting
-
-Because the site is plain files, it can also be served by any static host, or
-previewed locally with `python3 -m http.server`. See the README for local preview
-instructions, including how to reproduce the `/legacy/` project path.
+CI installs locked dependencies, audits runtime packages, validates JSON,
+checks production source and runs tests with read-only repository permission.
+It uses no pull-request secrets and does not deploy. Actual hosting, TLS,
+persistent storage, SMTP delivery, monitoring and a private removal route remain
+external configuration work.
