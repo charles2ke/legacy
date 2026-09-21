@@ -133,6 +133,17 @@ could ask for any ungated profile's JSON directly. Leaving `private` profiles to
 the catch-all would therefore hand them to every restricted viewer on the
 instance.
 
+This layering relies on two documented Cloudflare Access behaviours, worth
+confirming on any other host before trusting it:
+
+- **The most specific path wins, and inherits nothing.** A policy on
+  `/profiles/few.json` replaces the site-wide one for that file rather than
+  adding to it, which is what lets each profile carry its own allowlist.
+- **Access is deny by default, and an allow policy with no include rules matches
+  nobody.** That is why the generated policy for a profile with no allowlist of
+  its own is safe to apply as it stands: it refuses everyone until you fill it
+  in, rather than falling back to the catch-all.
+
 This works with the site as it is. When a viewer is refused a profile's JSON, the
 list page simply leaves that profile out, and the profile page reports that it
 could not be found.
