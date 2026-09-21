@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Profile editor — Legacy</title><link rel="stylesheet" href="assets/css/styles.css" /><script type="module" src="assets/js/app.js"></script></head>
+  <body><a class="skip-link" href="#main">Skip to main content</a><header class="site-header"><div class="wrap"><a class="site-title" href="index.html">Legacy</a><nav class="site-nav" aria-label="Account"><ul><li><a href="dashboard.html">Dashboard</a></li></ul></nav></div></header>
+    <main id="main" class="wrap"><h1>Guided profile editor</h1><p>Drafts are private. Every change to an approved profile requires a new moderator review; the previously approved revision remains public until you unpublish it.</p>
+      <form data-editor>
+        <fieldset><legend>Public identity</legend>
+          <label for="slug">Profile address</label><input id="slug" name="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxlength="60" required /><small>Lowercase letters, numbers and single hyphens.</small>
+          <label for="name">Public name</label><input id="name" name="name" maxlength="80" required />
+          <label for="introduction">Short introduction</label><textarea id="introduction" name="introduction" maxlength="280" required></textarea>
+          <label><input name="fictional" type="checkbox" /> This is a fictional example</label>
+        </fieldset>
+        <fieldset><legend>Your story</legend>
+          <label for="story">Story</label><textarea id="story" name="story" maxlength="8000" rows="10" required></textarea>
+          <label for="values">Values (one per line, up to 10)</label><textarea id="values" name="values"></textarea>
+          <label for="memories">Memories (one per line, up to 20)</label><textarea id="memories" name="memories"></textarea>
+          <label for="carryForward">What should readers carry forward?</label><textarea id="carryForward" name="carryForward" maxlength="1000" required></textarea>
+        </fieldset>
+        <fieldset><legend>Optional work link</legend>
+          <label for="workTitle">Title</label><input id="workTitle" name="workTitle" maxlength="120" />
+          <label for="workDescription">Description</label><textarea id="workDescription" name="workDescription" maxlength="600"></textarea>
+          <label for="workUrl">URL (http, https or mailto)</label><input id="workUrl" name="workUrl" type="url" maxlength="500" />
+        </fieldset>
+        <fieldset><legend>Optional image link</legend><p>Legacy does not upload or fetch files server-side. Link only to an image you have permission to publish.</p>
+          <label for="imageSrc">Image URL (http or https)</label><input id="imageSrc" name="imageSrc" type="url" maxlength="500" />
+          <label for="imageAlt">Image description</label><input id="imageAlt" name="imageAlt" maxlength="300" />
+        </fieldset>
+        <div class="actions"><button class="button" type="submit">Save private draft</button><button type="button" data-preview>Preview data</button></div>
+      </form>
+      <section><h2>Preview</h2><pre data-profile-preview tabindex="-1">Use “Preview data” to review exactly what will be submitted.</pre></section>
+      <section data-submit-review hidden><h2>Submit for review</h2><label><input name="consent" type="checkbox" /> I explicitly consent to publishing this profile publicly if a moderator approves it.</label><p><button class="button" type="button">Submit for moderator review</button></p></section>
+      <p tabindex="-1" role="alert" data-message></p>
+    </main>
+  </body>
+</html>
+

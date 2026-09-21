@@ -18,11 +18,11 @@ test('markup in contributor text is kept as text, never parsed', () => {
 test('profile data URLs resolve under a project path such as /legacy/', () => {
   assert.equal(
     profileDataUrl('river-song', 'https://example.github.io/legacy/profile.html'),
-    'https://example.github.io/legacy/profiles/river-song.json',
+    'https://example.github.io/legacy/api/profiles/river-song',
   );
   assert.equal(
     profileDataUrl('river-song', 'https://example.github.io/profile.html'),
-    'https://example.github.io/profiles/river-song.json',
+    'https://example.github.io/api/profiles/river-song',
   );
 });
 

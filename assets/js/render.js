@@ -20,7 +20,7 @@ export function toParagraphs(text) {
  */
 export function profileDataUrl(slug, baseUrl) {
   if (typeof slug !== 'string' || !SLUG_PATTERN.test(slug)) return null;
-  return new URL(`profiles/${slug}.json`, baseUrl).toString();
+  return new URL(`api/profiles/${slug}`, baseUrl).toString();
 }
 
 /** Link to a profile page, keeping relative paths intact. */
