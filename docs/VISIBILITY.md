@@ -37,21 +37,28 @@ here by accident.
 
 ### Instances
 
-`profiles/index.json` declares what kind of deployment it belongs to:
+A deployment declares what kind it is **in its own environment**, not in its
+content. `npm run validate` reads `LEGACY_INSTANCE`:
+
+- unset or `public` — only `public` profiles may exist. This repository.
+- `private` — every mode may exist, because the repository's permissions and the
+  host in front of the site decide who reads anything at all.
+
+Anything else is refused outright, so a typo can never widen what gets published.
+
+The instance is deliberately *not* taken from `profiles/index.json`, because every
+profile pull request edits that file: if it chose the instance, one line in the
+same pull request could switch the guard off. `index.json` carries a copy for the
+browser, which cannot read environment variables, and the validator fails if the
+two disagree:
 
 ```json
 { "instance": "public", "profiles": ["example-river-okonkwo"] }
 ```
 
-- `"public"` — only `public` profiles may exist. This repository.
-- `"private"` — every mode may exist, because the repository's permissions and
-  the host in front of the site decide who reads anything at all.
-
-A missing or unrecognised `instance` is treated as `"public"`, the strictest
-setting, so forgetting it can never widen what gets published. The site reads the
-same field and lists only the profiles that instance is allowed to publish —
-defence in depth, and the correct behaviour for a private instance. **On the
-public site that filter is not a security control**: the JSON was already
+The site reads that copy and lists only the profiles the instance is allowed to
+publish — defence in depth, and the correct behaviour for a private instance.
+**On the public site that filter is not a security control**: the JSON was already
 downloaded before it ran.
 
 ## Admins
@@ -86,7 +93,9 @@ This repository cannot host `private` or `restricted` profiles. A separate
 and the site are dependency-free and work unchanged.
 
 1. Create a private repository and copy this project's files into it.
-2. Set `"instance": "private"` in `profiles/index.json`.
+2. Set `"instance": "private"` in `profiles/index.json`, and set
+   `LEGACY_INSTANCE=private` in that repository's workflows — both, because they
+   must agree.
 3. Give repository read access to the people who may see `private` profiles.
 4. Run `npm run validate` and `npm test` there as usual.
 
@@ -110,10 +119,19 @@ Access policies match on **path**, and query strings are ignored, so
 `profile.html?slug=river-song` cannot carry a per-profile policy. The file that
 actually holds the content can:
 
-- `/profiles/<slug>.json` — one policy per restricted profile, allowing exactly
-  that profile's `allowedViewers`.
+- `/profiles/<slug>.json` — one policy per profile that is not public. A
+  `restricted` profile allows exactly its own `allowedViewers`; a `private`
+  profile needs an include naming the people with repository access.
 - Everything else — one site-wide policy requiring any recognised viewer.
   **Without this the rest of the private instance is served to anyone.**
+
+A `private` profile needs a policy of its own even though its allowlist is the
+repository's member list. The site-wide policy has to admit the outside viewers
+named by `restricted` profiles — they need `profile.html`, the scripts and
+`profiles/index.json` to read anything at all — and once it admits them, they
+could ask for any ungated profile's JSON directly. Leaving `private` profiles to
+the catch-all would therefore hand them to every restricted viewer on the
+instance.
 
 This works with the site as it is. When a viewer is refused a profile's JSON, the
 list page simply leaves that profile out, and the profile page reports that it
@@ -127,7 +145,7 @@ could not be found.
 npm run access-policies -- --site https://legacy.example.com
 ```
 
-That prints a manifest — one application per restricted profile, with the
+That prints a manifest — one application per profile that is not public, with the
 allowlist split into the shapes a host matches on:
 
 ```json
@@ -137,16 +155,26 @@ allowlist split into the shapes a host matches on:
       "slug": "few",
       "name": "Legacy profile: few",
       "path": "/profiles/few.json",
+      "visibility": "restricted",
       "decision": "allow",
       "include": {
         "emails": ["someone@example.com"],
         "emailDomains": ["example.org"],
         "groups": ["Close family"]
-      }
+      },
+      "needsInclude": false
     }
-  ]
+  ],
+  "warnings": []
 }
 ```
+
+An application with `"needsInclude": true` has an empty allowlist, which admits
+nobody — the safe way to be incomplete. Every `private` profile starts that way,
+because the profile itself does not say which host identities belong to the
+repository's members. Each one also produces a line in `warnings`, so a
+half-finished configuration is loud rather than quietly open. Fill the include in
+before applying the manifest.
 
 **It prints a manifest; it does not configure anything.** A maintainer applies it
 in the host's dashboard or through their own infrastructure tooling. For

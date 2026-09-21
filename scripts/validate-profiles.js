@@ -12,6 +12,7 @@ import {
   INSTANCE_MODES,
   SLUG_PATTERN,
   isPublishableOn,
+  normaliseInstance,
   profileVisibility,
   validateCollection,
   validateProfile,
@@ -24,7 +25,14 @@ async function readJson(file) {
   return JSON.parse(await readFile(file, 'utf8'));
 }
 
-export async function validateProfilesDirectory(dir = profilesDir, root = path.dirname(dir)) {
+export async function validateProfilesDirectory(
+  dir = profilesDir,
+  root = path.dirname(dir),
+  { instance = DEFAULT_INSTANCE } = {},
+) {
+  // An unrecognised instance falls back to the strictest one rather than being
+  // reported as-is, so every message below names a real mode.
+  instance = normaliseInstance(instance);
   const errors = [];
   const files = (await readdir(dir))
     .filter((file) => file.endsWith('.json'))
@@ -48,15 +56,21 @@ export async function validateProfilesDirectory(dir = profilesDir, root = path.d
     errors.push(`index.json: is not valid JSON (${error.message})`);
   }
 
-  // What kind of deployment these files belong to. Absent means "public",
-  // the strictest setting, so forgetting it can never widen publication.
-  let instance = DEFAULT_INSTANCE;
-  const declaredInstance = index && typeof index === 'object' ? index.instance : undefined;
+  // What kind of deployment this is comes from the caller — the environment the
+  // validator runs in — and never from the files being checked. profiles/index.json
+  // is touched by every profile pull request, so letting it choose would let a
+  // contributor turn off the guard in the same change it is meant to catch.
+  // The copy in index.json exists for the browser and must agree with this one.
+  const declaredInstance = index && typeof index === 'object' && !Array.isArray(index) ? index.instance : undefined;
   if (declaredInstance !== undefined) {
-    if (typeof declaredInstance === 'string' && INSTANCE_MODES.includes(declaredInstance)) {
-      instance = declaredInstance;
-    } else {
+    if (typeof declaredInstance !== 'string' || !INSTANCE_MODES.includes(declaredInstance)) {
       errors.push(`index.json: "instance" must be one of ${INSTANCE_MODES.map((mode) => `"${mode}"`).join(', ')}`);
+    } else if (declaredInstance !== instance) {
+      errors.push(
+        `index.json: "instance" says "${declaredInstance}" but this deployment is "${instance}". The deployment ` +
+          'sets its own instance (the LEGACY_INSTANCE environment variable), so changing this file cannot ' +
+          'change what may be published here.',
+      );
     }
   }
 
@@ -122,7 +136,18 @@ export async function validateProfilesDirectory(dir = profilesDir, root = path.d
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
-  const result = await validateProfilesDirectory();
+  // A private instance opts in through its own environment. Anything else, and
+  // anything unrecognised, is treated as a public instance.
+  const requested = process.env.LEGACY_INSTANCE;
+  if (requested !== undefined && !INSTANCE_MODES.includes(requested)) {
+    console.error(
+      `LEGACY_INSTANCE must be one of ${INSTANCE_MODES.map((mode) => `"${mode}"`).join(', ')}, not "${requested}".`,
+    );
+    process.exit(1);
+  }
+  const instance = requested ?? DEFAULT_INSTANCE;
+
+  const result = await validateProfilesDirectory(profilesDir, repoRoot, { instance });
   if (!result.valid) {
     console.error('Profile validation failed:');
     for (const error of result.errors) console.error(`  - ${error}`);

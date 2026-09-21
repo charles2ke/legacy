@@ -11,7 +11,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { GITHUB_USERNAME_PATTERN, MAX_LENGTHS } from '../assets/js/profile-schema.js';
+import { GITHUB_USERNAME_PATTERN, MAX_LENGTHS, SLUG_PATTERN } from '../assets/js/profile-schema.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const profilesDir = path.join(repoRoot, 'profiles');
@@ -46,11 +46,18 @@ function adminsOf(profile) {
 /**
  * Renders the whole file. Entries are sorted by slug so the output only changes
  * when the profiles do.
+ *
+ * Every part of a line is checked here rather than trusted from the caller. Both
+ * the slug and the admin names end up in a file that decides who may approve
+ * changes, and a newline in either would write rules nobody asked for — so an
+ * entry whose slug is not a plain slug is dropped, exactly as an admin whose
+ * name is not a plain username is.
  * @param {{ slug: string, profile: unknown }[]} entries
  */
 export function renderCodeowners(entries) {
   const lines = [...HEADER, ''];
   const owned = entries
+    .filter((entry) => typeof entry?.slug === 'string' && SLUG_PATTERN.test(entry.slug))
     .map((entry) => ({ slug: entry.slug, admins: adminsOf(entry.profile) }))
     .filter((entry) => entry.admins.length > 0)
     .sort((a, b) => a.slug.localeCompare(b.slug));

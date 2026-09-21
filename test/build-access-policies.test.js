@@ -8,7 +8,7 @@ const restricted = (slug, allowedViewers) => ({
   profile: { slug, visibility: 'restricted', allowedViewers },
 });
 
-test('only restricted profiles get an access policy', () => {
+test('every profile that is not public gets its own access policy', () => {
   const manifest = buildAccessPolicies(
     [
       restricted('few', ['someone@example.com']),
@@ -17,10 +17,41 @@ test('only restricted profiles get an access policy', () => {
     ],
     { site: 'https://legacy.example.com' },
   );
+  // A private profile cannot be left to the site-wide policy: that policy has to
+  // admit the outside viewers named by restricted profiles, and once it does,
+  // they could fetch any ungated profile's JSON directly.
   assert.deepEqual(
     manifest.applications.map((application) => application.slug),
-    ['few'],
+    ['few', 'quiet'],
   );
+  assert.equal(manifest.applications.find((a) => a.slug === 'open'), undefined);
+});
+
+test('a private profile is gated shut until a maintainer fills in its allowlist', () => {
+  const manifest = buildAccessPolicies([{ slug: 'quiet', profile: { slug: 'quiet', visibility: 'private' } }]);
+  const [application] = manifest.applications;
+  assert.equal(application.path, '/profiles/quiet.json');
+  assert.equal(application.visibility, 'private');
+  // Empty include: admits nobody, rather than quietly admitting everyone the
+  // site-wide policy lets in.
+  assert.deepEqual(application.include, { emails: [], emailDomains: [], groups: [] });
+  assert.equal(application.needsInclude, true);
+  assert.ok(manifest.warnings.some((warning) => warning.startsWith('quiet:')));
+});
+
+test('a fully specified restricted profile raises no warning', () => {
+  const manifest = buildAccessPolicies([restricted('few', ['someone@example.com'])]);
+  assert.equal(manifest.applications[0].needsInclude, false);
+  assert.deepEqual(manifest.warnings, []);
+});
+
+test('a visibility nobody recognises is gated rather than published', () => {
+  const manifest = buildAccessPolicies([{ slug: 'odd', profile: { slug: 'odd', visibility: null } }]);
+  assert.deepEqual(
+    manifest.applications.map((application) => application.slug),
+    ['odd'],
+  );
+  assert.equal(manifest.applications[0].needsInclude, true);
 });
 
 test('the policy gates the data file, which is the path a host can tell apart', () => {
@@ -52,8 +83,11 @@ test('entries that are not valid identifiers are left out of the policy', () => 
 test('a restricted profile with no usable allowlist yields an empty allow rule', () => {
   // An empty include list denies everyone, which is the safe direction. The
   // schema separately refuses to accept such a profile in the first place.
-  const [application] = buildAccessPolicies([restricted('few', [])]).applications;
+  const manifest = buildAccessPolicies([restricted('few', [])]);
+  const [application] = manifest.applications;
   assert.deepEqual(application.include, { emails: [], emailDomains: [], groups: [] });
+  assert.equal(application.needsInclude, true);
+  assert.ok(manifest.warnings.some((warning) => warning.startsWith('few:')));
 });
 
 test('the manifest says it is only a manifest, and records the site', () => {
@@ -61,5 +95,6 @@ test('the manifest says it is only a manifest, and records the site', () => {
   assert.equal(manifest.site, 'https://legacy.example.com');
   assert.match(manifest.note, /not an applied configuration/);
   assert.deepEqual(manifest.applications, []);
+  assert.deepEqual(manifest.warnings, []);
   assert.equal(buildAccessPolicies([]).site, null);
 });

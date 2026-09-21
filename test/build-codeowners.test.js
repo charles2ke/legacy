@@ -41,6 +41,27 @@ test('a repeated admin is listed once', () => {
   assert.match(output, /^\/profiles\/x\.json @Ada$/m);
 });
 
+test('a file name that is not a slug never reaches CODEOWNERS', () => {
+  // File names come from the directory listing and are chosen by whoever opens
+  // the pull request. A newline in one would write rules of its own into a file
+  // that decides who may approve changes, so the slug is checked like the
+  // admins are.
+  const output = renderCodeowners([
+    { slug: 'x\n* @attacker\ny', profile: { admins: ['victim'] } },
+    { slug: '../escape', profile: { admins: ['victim'] } },
+    { slug: 'Upper Case', profile: { admins: ['victim'] } },
+    { slug: 7, profile: { admins: ['victim'] } },
+    { slug: 'fine', profile: { admins: ['victim'] } },
+  ]);
+  assert.match(output, /^\/profiles\/fine\.json @victim$/m);
+  assert.ok(!output.includes('@attacker'));
+  assert.ok(!output.includes('escape'));
+  assert.ok(!output.includes('Upper Case'));
+  // Only the header comments and the one good rule: nothing else got a line.
+  const rules = output.split('\n').filter((line) => line.startsWith('/'));
+  assert.deepEqual(rules, ['/profiles/fine.json @victim']);
+});
+
 test('the committed CODEOWNERS matches the profiles in this repository', async () => {
   const { upToDate } = await checkCodeowners();
   assert.ok(upToDate, 'run `npm run codeowners` and commit the result');

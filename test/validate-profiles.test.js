@@ -171,9 +171,48 @@ test('a private instance may hold every visibility mode', async (t) => {
     index: ['someone', 'quiet', 'few'],
     instance: 'private',
   });
-  const result = await validateProfilesDirectory(dir);
+  const result = await validateProfilesDirectory(dir, path.dirname(dir), { instance: 'private' });
   assert.deepEqual(result.errors, []);
   assert.equal(result.instance, 'private');
+});
+
+test('a public deployment refuses profiles.json claiming to be private', async (t) => {
+  // The guard must not read its own switch out of the files it is guarding:
+  // every profile pull request touches index.json, so if that file could choose
+  // the instance, one line would turn the guard off in the same change that
+  // adds a private profile.
+  const dir = await fixture(t, {
+    files: { 'quiet.json': { ...exampleProfile('quiet'), visibility: 'private' } },
+    index: ['quiet'],
+    instance: 'private',
+  });
+  const result = await validateProfilesDirectory(dir);
+  assert.equal(result.valid, false);
+  assert.equal(result.instance, 'public');
+  assert.ok(result.errors.some((error) => error.includes('but this deployment is "public"')));
+  assert.ok(result.errors.some((error) => error.includes('is not allowed on a "public" instance')));
+});
+
+test('a private deployment refuses an index that still says public', async (t) => {
+  const dir = await fixture(t, {
+    files: { 'someone.json': exampleProfile('someone') },
+    index: ['someone'],
+    instance: 'public',
+  });
+  const result = await validateProfilesDirectory(dir, path.dirname(dir), { instance: 'private' });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes('but this deployment is "private"')));
+});
+
+test('an instance the caller invents is treated as the strictest one', async (t) => {
+  const dir = await fixture(t, {
+    files: { 'quiet.json': { ...exampleProfile('quiet'), visibility: 'private' } },
+    index: ['quiet'],
+  });
+  const result = await validateProfilesDirectory(dir, path.dirname(dir), { instance: 'priv' });
+  assert.equal(result.valid, false);
+  assert.equal(result.instance, 'public');
+  assert.ok(result.errors.some((error) => error.includes('is not allowed on a "public" instance')));
 });
 
 test('an unrecognised instance is reported rather than silently trusted', async (t) => {

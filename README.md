@@ -100,8 +100,11 @@ can keep a reader away from a file the browser has already been given.
 **This repository accepts `public` only.** It is a public repository, so anything
 committed here is readable by anyone whatever the file says about itself, and
 `npm run validate` fails on a profile that asks to be `private` or `restricted`.
-Those modes belong in a separate private instance, which needs no new code — the
-schema, the validator and the site work there unchanged.
+A deployment decides for itself which kind it is, through the `LEGACY_INSTANCE`
+environment variable rather than through any file under `profiles/`, so a pull
+request cannot turn that check off. Those modes belong in a separate private
+instance, which needs no new code — the schema, the validator and the site work
+there unchanged.
 
 `admins` names the people who own a profile. `npm run codeowners` turns those
 lists into `.github/CODEOWNERS` so they are the required reviewers for their own
@@ -163,7 +166,7 @@ npm test                  # unit tests for the schema, scripts and rendering hel
 automatically in CI on pull requests and on pushes to the default branch.
 
 `npm run access-policies -- --site https://legacy.example.com` prints the access
-policies for a private instance's restricted profiles; it has nothing to do on a
+policies for a private instance's non-public profiles; it has nothing to do on a
 public instance. See [docs/VISIBILITY.md](docs/VISIBILITY.md).
 
 ## Deployment
