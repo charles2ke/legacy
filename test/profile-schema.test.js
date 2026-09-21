@@ -141,3 +141,35 @@ test('a collection rejects duplicate slugs and file name mismatches', () => {
   assert.equal(mismatch.valid, false);
   assert.ok(mismatch.errors.some((error) => error.includes('must match the file name')));
 });
+
+test('family relations are accepted with a known relation, a name and an optional slug', () => {
+  const result = validateProfile({
+    ...validProfile,
+    family: [
+      { relation: 'parent', name: 'Ada Okonkwo', slug: 'ada-okonkwo', note: 'Ran the repair shop.' },
+      { relation: 'chosen-family', name: 'Tobi' },
+    ],
+  });
+  assert.deepEqual(result, { valid: true, errors: [] });
+});
+
+test('family relations reject unknown types, bad slugs and extra fields', () => {
+  const result = validateProfile({
+    ...validProfile,
+    family: [
+      { relation: 'colleague', name: 'Someone' },
+      { relation: 'parent' },
+      { relation: 'sibling', name: 'Someone', slug: 'Not A Slug' },
+      { relation: 'partner', name: 'Someone', slug: 'river-song' },
+      { relation: 'child', name: 'Someone', birthday: '1970-01-01' },
+      'not an object',
+    ],
+  });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.startsWith('family[0].relation:')));
+  assert.ok(result.errors.some((error) => error === 'family[1].name: is required'));
+  assert.ok(result.errors.some((error) => error.startsWith('family[2].slug:')));
+  assert.ok(result.errors.some((error) => error.startsWith('family[3].slug:')));
+  assert.ok(result.errors.some((error) => error === 'family[4].birthday: is not an allowed field'));
+  assert.ok(result.errors.some((error) => error === 'family[5]: must be an object'));
+});

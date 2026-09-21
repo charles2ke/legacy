@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { profileDataUrl, profilePageUrl, safeImage, safeWork, toParagraphs } from '../assets/js/render.js';
+import {
+  profileDataUrl,
+  profilePageUrl,
+  safeFamily,
+  safeImage,
+  safeWork,
+  toParagraphs,
+} from '../assets/js/render.js';
 
 test('stories are split into paragraphs of plain text', () => {
   assert.deepEqual(toParagraphs('One.\n\nTwo.'), ['One.', 'Two.']);
@@ -55,4 +62,27 @@ test('images are dropped unless the source is safe and alt text exists', () => {
     alt: 'A photo.',
   });
   assert.equal(safeImage(undefined), null);
+});
+
+test('family relations are labelled and only link to valid profile slugs', () => {
+  const relations = safeFamily([
+    { relation: 'parent', name: 'Ada', slug: 'ada-okonkwo', note: 'Taught me to solder.' },
+    { relation: 'sibling', name: 'Tobi' },
+    { relation: 'partner', name: 'Kim', slug: '../evil' },
+    { relation: 'colleague', name: 'Not family' },
+    { relation: 'parent', name: '   ' },
+    null,
+  ]);
+  assert.deepEqual(relations, [
+    {
+      relation: 'parent',
+      label: 'Parent',
+      name: 'Ada',
+      note: 'Taught me to solder.',
+      href: 'profile.html?slug=ada-okonkwo',
+    },
+    { relation: 'sibling', label: 'Sibling', name: 'Tobi', note: '', href: null },
+    { relation: 'partner', label: 'Partner', name: 'Kim', note: '', href: null },
+  ]);
+  assert.deepEqual(safeFamily(undefined), []);
 });

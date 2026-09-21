@@ -266,6 +266,20 @@ li {
   margin: 0 0 0.25rem;
 }
 
+.family-list li {
+  margin-bottom: 0.5rem;
+  max-width: var(--measure);
+}
+
+.family-list p {
+  color: var(--muted);
+  margin: 0.15rem 0 0;
+}
+
+.family-relation {
+  color: var(--muted);
+}
+
 .back-link {
   margin-top: 2.5rem;
 }

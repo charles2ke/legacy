@@ -6,6 +6,7 @@ import { validateProfile } from './profile-schema.js';
 import {
   profileDataUrl,
   profilePageUrl,
+  safeFamily,
   safeImage,
   safeWork,
   toParagraphs,
@@ -145,6 +146,25 @@ function renderProfile(container, profile) {
     const list = el('ul');
     for (const memory of profile.memories) list.append(el('li', memory));
     parts.push(section('Memories', list));
+  }
+
+  const family = safeFamily(profile.family);
+  if (family.length > 0) {
+    const list = el('ul', null, 'family-list');
+    for (const relation of family) {
+      const entry = el('li');
+      entry.append(el('span', `${relation.label}: `, 'family-relation'));
+      if (relation.href) {
+        const link = el('a', relation.name);
+        link.href = relation.href;
+        entry.append(link);
+      } else {
+        entry.append(el('span', relation.name));
+      }
+      if (relation.note) entry.append(el('p', relation.note));
+      list.append(entry);
+    }
+    parts.push(section('Family', list));
   }
 
   parts.push(section('What I hope you carry forward', el('p', profile.carryForward)));
