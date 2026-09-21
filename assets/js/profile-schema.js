@@ -1,7 +1,7 @@
 // Shared profile format rules. Used by the website and by the validation script,
 // so the browser and CI always agree on what a valid profile looks like.
 
-export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*(?![\s\S])/;
 
 export const MAX_LENGTHS = {
   slug: 60,
@@ -55,7 +55,7 @@ export const INSTANCE_MODES = ['public', 'private'];
 export const DEFAULT_INSTANCE = 'public';
 
 // GitHub usernames: alphanumeric with single hyphens, up to 39 characters.
-export const GITHUB_USERNAME_PATTERN = /^[A-Za-z0-9](?:-?[A-Za-z0-9])*$/;
+export const GITHUB_USERNAME_PATTERN = /^[A-Za-z0-9](?:-?[A-Za-z0-9])*(?![\s\S])/;
 
 // Admins own a profile and may change its visibility; kept small on purpose.
 export const MAX_ADMINS = 10;
