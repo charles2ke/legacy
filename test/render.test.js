@@ -6,6 +6,7 @@ import {
   profilePageUrl,
   safeFamily,
   safeImage,
+  safeLinks,
   safeWork,
   toParagraphs,
 } from '../assets/js/render.js';
@@ -85,4 +86,22 @@ test('family relations are labelled and only link to valid profile slugs', () =>
     { relation: 'partner', label: 'Partner', name: 'Kim', note: '', href: null },
   ]);
   assert.deepEqual(safeFamily(undefined), []);
+});
+
+test('safeLinks keeps labelled links and drops unsafe or incomplete ones', () => {
+  assert.deepEqual(
+    safeLinks([
+      { label: 'Blog', url: 'https://example.com/blog' },
+      { label: 'Photos', url: 'https://example.com/photos' },
+      { label: 'Bad', url: 'javascript:alert(1)' },
+      { label: '  ', url: 'https://example.com' },
+      { url: 'https://example.com' },
+      null,
+    ]),
+    [
+      { label: 'Blog', url: 'https://example.com/blog' },
+      { label: 'Photos', url: 'https://example.com/photos' },
+    ],
+  );
+  assert.deepEqual(safeLinks(undefined), []);
 });

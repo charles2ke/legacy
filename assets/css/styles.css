@@ -280,6 +280,15 @@ li {
   color: var(--muted);
 }
 
+.link-list {
+  list-style: none;
+  padding: 0;
+}
+
+.link-list li {
+  margin: 0.4rem 0;
+}
+
 .back-link {
   margin-top: 2.5rem;
 }

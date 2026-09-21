@@ -61,6 +61,9 @@ The fields, limits and required values are documented in the
 
 - `slug` must match the file name and must not already exist.
 - Links may only use `https:`, `http:` or `mailto:`. Other schemes are rejected.
+- `links` is for pointing elsewhere — social media, a blog, a photo gallery or any
+  other page. Each entry needs a short `label` and a `url`. Only link to pages you
+  are happy to have public, and remember external pages can change or disappear.
 - Images need `alt` text describing the picture for people who cannot see it.
 - An image `src` must be an `https`/`http` URL, or a file you committed under
   `assets/images/`. Committed images are preferred, because an external host can

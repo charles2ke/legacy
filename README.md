@@ -63,6 +63,7 @@ Each profile is one JSON file named after its slug, for example
 | `carryForward` | yes | What you hope others carry forward |
 | `values` | no | Up to 10 short lines |
 | `work` | no | Up to 20 entries: `title`, optional `description`, optional `url` |
+| `links` | no | Up to 10 links (social media, blog, photos, anything else): `label` and `url` |
 | `memories` | no | Up to 20 short memories |
 | `family` | no | Up to 20 relations: `relation` (`parent`, `child`, `sibling`, `partner`, `grandparent`, `grandchild`, `relative`, `chosen-family`), `name`, optional `slug` of their profile here, optional short `note` |
 | `image` | no | `src` (an `https`/`http` URL, or a file committed under `assets/images/`) and required `alt` text |

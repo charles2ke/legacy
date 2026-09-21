@@ -52,6 +52,24 @@ export function safeWork(work) {
     }));
 }
 
+/**
+ * Keeps only the links (social media, blog, photo galleries and anything else)
+ * that have a label and a URL using a scheme we allow.
+ */
+export function safeLinks(links) {
+  if (!Array.isArray(links)) return [];
+  return links
+    .filter(
+      (item) =>
+        item &&
+        typeof item === 'object' &&
+        typeof item.label === 'string' &&
+        item.label.trim() !== '' &&
+        isSafeUrl(item.url),
+    )
+    .map((item) => ({ label: item.label, url: item.url }));
+}
+
 /** Returns the image only when its source is safe, otherwise null. */
 export function safeImage(image) {
   if (!image || typeof image !== 'object') return null;

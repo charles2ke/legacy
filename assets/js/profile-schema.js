@@ -11,6 +11,7 @@ export const MAX_LENGTHS = {
   value: 160,
   workTitle: 120,
   workDescription: 600,
+  linkLabel: 80,
   memory: 1000,
   imageAlt: 300,
   carryForward: 1000,
@@ -50,6 +51,7 @@ const ALLOWED_TOP_LEVEL_FIELDS = [
   'story',
   'values',
   'work',
+  'links',
   'memories',
   'image',
   'family',
@@ -177,6 +179,25 @@ export function validateProfile(profile) {
       }
       for (const key of Object.keys(item)) {
         if (!['title', 'description', 'url'].includes(key)) {
+          errors.push(`${base}.${key}: is not an allowed field`);
+        }
+      }
+    });
+  }
+
+  if (profile.links !== undefined && checkArray(errors, 'links', profile.links, 10)) {
+    profile.links.forEach((item, index) => {
+      const base = `links[${index}]`;
+      if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        errors.push(`${base}: must be an object with "label" and "url"`);
+        return;
+      }
+      checkText(errors, `${base}.label`, item.label, MAX_LENGTHS.linkLabel, { required: true });
+      if (!isSafeUrl(item.url)) {
+        errors.push(`${base}.url: must be a valid https, http or mailto URL`);
+      }
+      for (const key of Object.keys(item)) {
+        if (!['label', 'url'].includes(key)) {
           errors.push(`${base}.${key}: is not an allowed field`);
         }
       }
