@@ -28,8 +28,7 @@ try {
     }
     const existing = await database.get('SELECT id FROM profiles WHERE slug = ?', [slug]);
     if (existing) throw new Error(`${slug}: already exists in the database`);
-    await database.exec('BEGIN IMMEDIATE');
-    try {
+    await database.transaction(async () => {
       const result = await database.run(
         `INSERT INTO profiles (owner_user_id, slug, status) VALUES (NULL, ?, 'draft')`,
         [slug],
@@ -48,12 +47,8 @@ try {
          VALUES (?, 'profile.imported_unowned', ?)`,
         [result.lastID, JSON.stringify({ provenance })],
       );
-      await database.exec('COMMIT');
       imported += 1;
-    } catch (error) {
-      await database.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
 } finally {
   await database.close();

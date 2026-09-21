@@ -222,16 +222,11 @@ export async function createApp({ config, database, mailer, logger = console }) 
       );
       if (!reset) return jsonError(res, 400, 'Reset link is invalid or expired');
       const passwordHash = await argon2.hash(req.body.password, { type: argon2.argon2id });
-      await database.exec('BEGIN IMMEDIATE');
-      try {
+      await database.transaction(async () => {
         await database.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, reset.user_id]);
         await database.run('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?', [reset.id]);
         await database.run(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`, [reset.user_id]);
-        await database.exec('COMMIT');
-      } catch (error) {
-        await database.exec('ROLLBACK');
-        throw error;
-      }
+      });
       res.json({ message: 'Password updated. Sign in with the new password.' });
     } catch (error) {
       next(error);
@@ -283,25 +278,25 @@ export async function createApp({ config, database, mailer, logger = console }) 
     try {
       const parsed = parseProfile(req.body.profile);
       if (parsed.errors) return jsonError(res, 400, 'Profile validation failed', parsed.errors);
-      await database.exec('BEGIN IMMEDIATE');
       try {
-        const profile = await database.run(
-          'INSERT INTO profiles (owner_user_id, slug) VALUES (?, ?)',
-          [req.session.userId, parsed.profile.slug],
-        );
-        const revision = await database.run(
-          'INSERT INTO profile_revisions (profile_id, content_json, created_by_user_id) VALUES (?, ?, ?)',
-          [profile.lastID, JSON.stringify(parsed.profile), req.session.userId],
-        );
-        await database.run('UPDATE profiles SET draft_revision_id = ? WHERE id = ?', [
-          revision.lastID,
-          profile.lastID,
-        ]);
-        await audit(database, req.session.userId, profile.lastID, 'profile.created');
-        await database.exec('COMMIT');
+        const profile = await database.transaction(async () => {
+          const inserted = await database.run(
+            'INSERT INTO profiles (owner_user_id, slug) VALUES (?, ?)',
+            [req.session.userId, parsed.profile.slug],
+          );
+          const revision = await database.run(
+            'INSERT INTO profile_revisions (profile_id, content_json, created_by_user_id) VALUES (?, ?, ?)',
+            [inserted.lastID, JSON.stringify(parsed.profile), req.session.userId],
+          );
+          await database.run('UPDATE profiles SET draft_revision_id = ? WHERE id = ?', [
+            revision.lastID,
+            inserted.lastID,
+          ]);
+          await audit(database, req.session.userId, inserted.lastID, 'profile.created');
+          return inserted;
+        });
         res.status(201).json({ id: profile.lastID, status: 'draft' });
       } catch (error) {
-        await database.exec('ROLLBACK');
         if (error.code === 'SQLITE_CONSTRAINT') return jsonError(res, 409, 'That profile address is already used');
         throw error;
       }
@@ -325,16 +320,23 @@ export async function createApp({ config, database, mailer, logger = console }) 
         current.id,
       ]);
       if (slugConflict) return jsonError(res, 409, 'That profile address is already used');
-      const revision = await database.run(
-        'INSERT INTO profile_revisions (profile_id, content_json, created_by_user_id) VALUES (?, ?, ?)',
-        [current.id, JSON.stringify(parsed.profile), req.session.userId],
-      );
-      await database.run(
-        `UPDATE profiles SET slug = ?, draft_revision_id = ?, status = 'draft',
-         consented_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_user_id = ?`,
-        [parsed.profile.slug, revision.lastID, current.id, req.session.userId],
-      );
-      await audit(database, req.session.userId, current.id, 'profile.draft_saved');
+      try {
+        await database.transaction(async () => {
+          const revision = await database.run(
+            'INSERT INTO profile_revisions (profile_id, content_json, created_by_user_id) VALUES (?, ?, ?)',
+            [current.id, JSON.stringify(parsed.profile), req.session.userId],
+          );
+          await database.run(
+            `UPDATE profiles SET slug = ?, draft_revision_id = ?, status = 'draft',
+             consented_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_user_id = ?`,
+            [parsed.profile.slug, revision.lastID, current.id, req.session.userId],
+          );
+          await audit(database, req.session.userId, current.id, 'profile.draft_saved');
+        });
+      } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT') return jsonError(res, 409, 'That profile address is already used');
+        throw error;
+      }
       res.json({ id: current.id, status: 'draft' });
     } catch (error) {
       next(error);
@@ -429,8 +431,7 @@ export async function createApp({ config, database, mailer, logger = console }) 
         [req.params.id],
       );
       if (!profile || !profile.consented_at) return jsonError(res, 409, 'Profile is not awaiting review');
-      await database.exec('BEGIN IMMEDIATE');
-      try {
+      await database.transaction(async () => {
         await database.run(
           `INSERT INTO moderation_decisions
              (profile_id, revision_id, moderator_user_id, decision, feedback)
@@ -452,11 +453,7 @@ export async function createApp({ config, database, mailer, logger = console }) 
         await audit(database, req.session.userId, profile.id, `profile.${req.body.decision}`, {
           revisionId: profile.draft_revision_id,
         });
-        await database.exec('COMMIT');
-      } catch (error) {
-        await database.exec('ROLLBACK');
-        throw error;
-      }
+      });
       res.json({ id: profile.id, status: req.body.decision });
     } catch (error) {
       next(error);
@@ -537,7 +534,7 @@ export async function createApp({ config, database, mailer, logger = console }) 
         [req.params.value],
       );
       if (!row) return jsonError(res, 404, 'Profile not found');
-      res.json({ id: row.id, ...parseContent(row) });
+      res.json(parseContent(row));
     } catch (error) {
       next(error);
     }

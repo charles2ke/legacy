@@ -69,6 +69,7 @@ npm start             # start the application
 npm test              # run all Node tests
 npm run validate      # validate retained JSON archive files
 npm run build         # validation and production source checks
+npm run test:e2e      # browser lifecycle test (requires its documented env)
 npm audit --omit=dev  # check runtime dependencies
 ```
 
@@ -77,10 +78,13 @@ npm audit --omit=dev  # check runtime dependencies
 On 2026-09-21 the implementation was checked locally with:
 
 - `npm run build` — profile validation and source checks passed.
-- `npm test` — all 38 tests passed.
+- `npm test` — all 39 tests passed.
 - `npm audit --omit=dev` — 0 known runtime vulnerabilities.
 - a migration smoke test and JSON import smoke test — passed; the imported
   profile remained unowned and unpublished.
+- `npm run test:e2e` — owner editing/submission, moderator approval, public
+  directory and public detail passed in Chromium; four screenshots were
+  generated.
 
 These results do not verify external SMTP delivery, production TLS, persistent
 hosting, backups, monitoring or a real private removal contact. Those remain
@@ -102,6 +106,11 @@ See `.env.example`.
 
 No email provider, hosting provider, contact address, or production deployment
 is included or implied.
+
+CI runs the same Playwright lifecycle and uploads `browser-screenshots` as a
+workflow artifact on every run. The test requires `BROWSER_OWNER_EMAIL`,
+`BROWSER_OWNER_PASSWORD`, `MODERATOR_EMAIL` and `MODERATOR_PASSWORD`; CI uses
+non-secret, isolated test-only values.
 
 ## Data and moderation
 

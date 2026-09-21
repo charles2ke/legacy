@@ -10,6 +10,7 @@ export async function openDatabase(filename) {
     const instance = new sqlite3.Database(filename, (error) => (error ? reject(error) : resolve(instance)));
   });
   raw.configure('busyTimeout', 5000);
+  let transactionTail = Promise.resolve();
 
   const database = {
     raw,
@@ -37,9 +38,29 @@ export async function openDatabase(filename) {
     close() {
       return new Promise((resolve, reject) => raw.close((error) => (error ? reject(error) : resolve())));
     },
+    async transaction(work) {
+      let release;
+      const previous = transactionTail;
+      transactionTail = new Promise((resolve) => {
+        release = resolve;
+      });
+      await previous;
+      let started = false;
+      try {
+        await database.exec('BEGIN IMMEDIATE');
+        started = true;
+        const result = await work();
+        await database.exec('COMMIT');
+        return result;
+      } catch (error) {
+        if (started) await database.exec('ROLLBACK').catch(() => {});
+        throw error;
+      } finally {
+        release();
+      }
+    },
   };
 
   await database.exec(await readFile(migrationPath, 'utf8'));
   return database;
 }
-

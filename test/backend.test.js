@@ -104,6 +104,21 @@ test('production configuration fails closed without secure settings', () => {
   );
 });
 
+test('database transactions serialize concurrent writers without cross-rollback', async (t) => {
+  const database = await openDatabase(':memory:');
+  t.after(() => database.close());
+  await Promise.all(
+    Array.from({ length: 5 }, (_, index) =>
+      database.transaction(async () => {
+        await database.run('INSERT INTO audit_log (action) VALUES (?)', [`concurrent.${index}`]);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }),
+    ),
+  );
+  const result = await database.get(`SELECT COUNT(*) AS count FROM audit_log WHERE action LIKE 'concurrent.%'`);
+  assert.equal(result.count, 5);
+});
+
 test('auth uses sessions, CSRF protection, private emails and server-controlled roles', async (t) => {
   const { app } = await fixture(t);
   const agent = supertest.agent(app);
