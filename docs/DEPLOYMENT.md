@@ -17,6 +17,20 @@ perform the steps below manually before any deployment can succeed.
    are relative, so both the project path and a domain root work without changes.
 4. Optionally, under **Settings → Environments → github-pages**, restrict
    deployments to the default branch.
+5. Optionally, under **Settings → Branches**, protect the default branch with
+   **Require a pull request before merging** and **Require review from Code
+   Owners**. Until this is on, the generated `.github/CODEOWNERS` is only
+   documentation and profile `admins` cannot actually gate changes to their own
+   file. See [VISIBILITY.md](VISIBILITY.md).
+
+## Pages cannot host private or restricted profiles
+
+A GitHub Pages site is public on the Free, Pro and Team plans even when its
+repository is private; per-site access control is a GitHub Enterprise Cloud
+feature. Validation therefore refuses to let a `private` or `restricted` profile
+be committed to this repository at all, and this workflow only ever deploys
+public profiles. Hosting those modes needs a private instance behind an
+authenticating host — see [VISIBILITY.md](VISIBILITY.md).
 
 ## How deployment runs
 

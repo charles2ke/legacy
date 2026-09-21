@@ -81,3 +81,32 @@ is one reason to prefer images committed to this repository.
 Contributor text is rendered as plain text and contributor HTML or scripts are
 never executed. Links are restricted to `https:`, `http:` and `mailto:`. This
 protects readers from script injection; it does not make the archive private.
+
+## Visibility settings cannot make published content private
+
+A profile can declare `visibility` as `public`, `private` or `restricted`, and
+this repository accepts **`public` only**. The other two modes exist for a
+separate private instance, and validation refuses to let them be committed here.
+See [VISIBILITY.md](VISIBILITY.md).
+
+Be clear about what that setting is and is not:
+
+- **It changes nothing about anything already published.** Adding
+  `"visibility": "private"` to a profile that has been in this repository is not a
+  retraction. The file was public; it stays in Git history, in every fork and
+  clone, and in whatever search engines and archives took while it was there.
+  Removing it is still worth doing — see [removal requests](#removal-requests) —
+  but removal has the same limits, described above.
+- **It is not enforced by the website.** The site does filter what it lists, but
+  on a public site that happens in a visitor's own browser, after their browser
+  has already downloaded the file. Treat that filter as tidiness, not protection.
+- **`restricted` is only as strong as the host in front of it.** Being on an
+  `allowedViewers` list means an authenticating host checked an email address or
+  an identity-provider account before serving the file. It does not encrypt
+  anything: the host's administrators, and anyone who can read the private
+  repository, can read the content.
+- **An allowlist is itself personal data.** `allowedViewers` holds other people's
+  email addresses, which is another reason it may never be committed here.
+
+If content must never be public, do not put it in a public repository in the
+first place. That is the only version of this that actually works.

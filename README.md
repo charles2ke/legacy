@@ -21,6 +21,7 @@ in this repository, contributed through pull requests.
 
 - [Project structure](#project-structure)
 - [Profile format](#profile-format)
+- [Visibility](#visibility)
 - [Contributing a profile](#contributing-a-profile)
 - [Local preview](#local-preview)
 - [Validation and tests](#validation-and-tests)
@@ -42,8 +43,10 @@ profiles/_template.json  Template to copy when adding a profile
 profiles/index.json      List of published slugs
 profiles/*.json          One file per profile
 scripts/validate-profiles.js  Validation used locally and in CI
+scripts/build-codeowners.js   Writes .github/CODEOWNERS from each profile's admins
+scripts/build-access-policies.js  Access policies for a gated private instance
 test/                    Node test-runner tests
-docs/                    Privacy, backups, moderation and deployment notes
+docs/                    Privacy, visibility, backups, moderation and deployment notes
 ```
 
 The site uses only relative links and relative data paths, so it works both at a
@@ -66,6 +69,9 @@ Each profile is one JSON file named after its slug, for example
 | `memories` | no | Up to 20 short memories |
 | `image` | no | `src` (an `https`/`http` URL, or a file committed under `assets/images/`) and required `alt` text |
 | `fictional` | no | `true` marks a demonstration profile |
+| `visibility` | no | `public` (default), `private` or `restricted` — see [visibility](#visibility) |
+| `admins` | no | Up to 10 GitHub usernames who own the profile and may change its visibility |
+| `allowedViewers` | no | Required when `visibility` is `restricted`, and rejected otherwise; never accepted in this repository |
 
 Optional fields stay optional — leave them out entirely if you do not want them.
 
@@ -78,6 +84,33 @@ as text: submitted HTML or scripts are never executed.
 
 `profiles/example-river-okonkwo.json` is a clearly labelled **fictional**
 demonstration profile. It describes no real person.
+
+## Visibility
+
+A profile declares how widely it wants to be published, but **the declaration
+lives in the profile and the enforcement does not**: nothing running in a browser
+can keep a reader away from a file the browser has already been given.
+
+| Mode | Meaning | Enforced by |
+| --- | --- | --- |
+| `public` | Anyone can read it | Nothing needed — this is how the archive works |
+| `private` | Only people with access to the repository | A **private** repository; never published |
+| `restricted` | Only the people named in `allowedViewers` | An **authenticating host** in front of a private deployment |
+
+**This repository accepts `public` only.** It is a public repository, so anything
+committed here is readable by anyone whatever the file says about itself, and
+`npm run validate` fails on a profile that asks to be `private` or `restricted`.
+Those modes belong in a separate private instance, which needs no new code — the
+schema, the validator and the site work there unchanged.
+
+`admins` names the people who own a profile. `npm run codeowners` turns those
+lists into `.github/CODEOWNERS` so they are the required reviewers for their own
+file, which takes effect once a maintainer enables branch protection with
+"Require review from Code Owners".
+
+Full instructions, including how to set up a private instance and how to gate
+individual profiles with an authenticating host, are in
+[docs/VISIBILITY.md](docs/VISIBILITY.md).
 
 ## Contributing a profile
 
@@ -120,11 +153,18 @@ Opening the HTML files directly with `file://` will not work, because browsers b
 Node.js 20 or newer, no dependencies to install:
 
 ```bash
-npm run validate   # checks every profile and profiles/index.json
-npm test           # unit tests for the schema, rendering helpers and validator
+npm run validate          # checks every profile and profiles/index.json
+npm run codeowners        # rewrites .github/CODEOWNERS from each profile's admins
+npm run codeowners:check  # fails if .github/CODEOWNERS has drifted
+npm test                  # unit tests for the schema, scripts and rendering helpers
 ```
 
-Both run automatically in CI on pull requests and on pushes to the default branch.
+`npm run validate`, `npm run codeowners:check` and `npm test` all run
+automatically in CI on pull requests and on pushes to the default branch.
+
+`npm run access-policies -- --site https://legacy.example.com` prints the access
+policies for a private instance's restricted profiles; it has nothing to do on a
+public instance. See [docs/VISIBILITY.md](docs/VISIBILITY.md).
 
 ## Deployment
 
@@ -155,6 +195,7 @@ Two different things live in this repository, under two different terms:
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — expected behaviour
 - [SECURITY.md](SECURITY.md) — what counts as a vulnerability and how to report it
 - [docs/PRIVACY.md](docs/PRIVACY.md) — consent, privacy and removal requests
+- [docs/VISIBILITY.md](docs/VISIBILITY.md) — public, private and restricted profiles
 - [docs/MODERATION.md](docs/MODERATION.md) — the review checklist maintainers use
 - [docs/BACKUPS.md](docs/BACKUPS.md) — backups and stewardship
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — Pages setup a maintainer must do
