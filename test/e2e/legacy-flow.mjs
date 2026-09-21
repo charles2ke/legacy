@@ -52,7 +52,15 @@ try {
   await page.getByRole('link', { name: 'Moderation' }).click();
   await page.getByRole('heading', { name: /Browser River/ }).waitFor();
   await page.screenshot({ path: 'test-results/moderation-review.png', fullPage: true });
-  await page.getByRole('button', { name: 'Approve' }).click();
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/moderation/profiles/') &&
+        response.url().endsWith('/decision') &&
+        response.status() === 200,
+    ),
+    page.getByRole('button', { name: 'Approve' }).click(),
+  ]);
 
   await page.goto(`${baseUrl}/profiles.html`);
   await page.getByRole('link', { name: 'Browser River' }).waitFor();
@@ -65,4 +73,3 @@ try {
 } finally {
   await browser.close();
 }
-
