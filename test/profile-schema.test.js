@@ -186,6 +186,19 @@ test('a collection accepts present family slugs and rejects missing ones', () =>
   ]);
   assert.equal(valid.valid, true);
 
+  const selfReference = validateCollection([
+    {
+      slug: 'river-song',
+      profile: {
+        ...validProfile,
+        family: [{ relation: 'parent', name: 'River Song', slug: 'river-song' }],
+      },
+    },
+  ]);
+  assert.ok(selfReference.errors.includes(
+    "river-song: family[0].slug: must not be this profile's own slug",
+  ));
+
   const result = validateCollection([
     {
       slug: 'river-song',
