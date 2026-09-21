@@ -7,6 +7,7 @@ import {
   profileDataUrl,
   profilePageUrl,
   safeImage,
+  safeLinks,
   safeWork,
   toParagraphs,
 } from './render.js';
@@ -146,6 +147,20 @@ function renderProfile(container, profile) {
       list.append(entry);
     }
     parts.push(section('Things I made', list));
+  }
+
+  const links = safeLinks(profile.links);
+  if (links.length > 0) {
+    const list = el('ul', null, 'link-list');
+    for (const item of links) {
+      const entry = el('li');
+      const link = el('a', item.label);
+      link.href = item.url;
+      link.rel = 'nofollow ugc';
+      entry.append(link);
+      list.append(entry);
+    }
+    parts.push(section('Where to find me', list));
   }
 
   if (Array.isArray(profile.memories) && profile.memories.length > 0) {

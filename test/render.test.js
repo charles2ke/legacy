@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { profileDataUrl, profilePageUrl, safeImage, safeWork, toParagraphs } from '../assets/js/render.js';
+import {
+  profileDataUrl,
+  profilePageUrl,
+  safeImage,
+  safeLinks,
+  safeWork,
+  toParagraphs,
+} from '../assets/js/render.js';
 
 test('stories are split into paragraphs of plain text', () => {
   assert.deepEqual(toParagraphs('One.\n\nTwo.'), ['One.', 'Two.']);
@@ -61,4 +68,22 @@ test('an autobiography is split into paragraphs of plain text', () => {
   assert.deepEqual(toParagraphs('Early years.\n\nLater years.'), ['Early years.', 'Later years.']);
   assert.deepEqual(toParagraphs('<b>Not markup</b>'), ['<b>Not markup</b>']);
   assert.deepEqual(toParagraphs(undefined), []);
+});
+
+test('safeLinks keeps labelled links and drops unsafe or incomplete ones', () => {
+  assert.deepEqual(
+    safeLinks([
+      { label: 'Blog', url: 'https://example.com/blog' },
+      { label: 'Photos', url: 'https://example.com/photos' },
+      { label: 'Bad', url: 'javascript:alert(1)' },
+      { label: '  ', url: 'https://example.com' },
+      { url: 'https://example.com' },
+      null,
+    ]),
+    [
+      { label: 'Blog', url: 'https://example.com/blog' },
+      { label: 'Photos', url: 'https://example.com/photos' },
+    ],
+  );
+  assert.deepEqual(safeLinks(undefined), []);
 });
