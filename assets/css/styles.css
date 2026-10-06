@@ -398,3 +398,10 @@ li {
     text-align: center;
   }
 }
+
+/* The GitHub Pages copy (scripts/build-pages.js) has no server, so links to
+   accounts are hidden there and read-only notices are shown instead. */
+html:not([data-legacy-static]) [data-static-only],
+html[data-legacy-static] [data-requires-server] {
+  display: none;
+}

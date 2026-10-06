@@ -102,3 +102,45 @@ export function safeFamily(family) {
       href: profilePageUrl(item.slug),
     }));
 }
+
+const SEARCH_FIELDS = ['name', 'introduction', 'story', 'carryForward'];
+
+/**
+ * Filters, sorts and pages published profiles the way /api/profiles does, for
+ * the static GitHub Pages copy of the site, which has no server to ask.
+ */
+export function queryProfiles(profiles, params = new URLSearchParams()) {
+  const page = Math.max(1, Number.parseInt(params.get('page') || '1', 10) || 1);
+  const limit = Math.min(50, Math.max(1, Number.parseInt(params.get('limit') || '12', 10) || 12));
+  const q = (params.get('q') || '').trim().slice(0, 100).toLowerCase();
+  const fictional = params.get('fictional');
+  const hasWork = (profile) => Array.isArray(profile.work) && profile.work.length > 0;
+
+  const matches = (Array.isArray(profiles) ? profiles : [])
+    .filter((profile) => profile && typeof profile === 'object' && profilePageUrl(profile.slug))
+    .filter(
+      (profile) =>
+        !q ||
+        SEARCH_FIELDS.some((field) => typeof profile[field] === 'string' && profile[field].toLowerCase().includes(q)),
+    )
+    .filter((profile) => fictional !== 'true' || profile.fictional === true)
+    .filter((profile) => fictional !== 'false' || profile.fictional !== true)
+    .filter((profile) => params.get('hasWork') !== 'true' || hasWork(profile))
+    .sort((a, b) => {
+      const left = [String(a.name).toLowerCase(), a.slug];
+      const right = [String(b.name).toLowerCase(), b.slug];
+      if (left[0] !== right[0]) return left[0] < right[0] ? -1 : 1;
+      return left[1] < right[1] ? -1 : left[1] > right[1] ? 1 : 0;
+    });
+
+  return {
+    profiles: matches.slice((page - 1) * limit, page * limit).map((profile) => ({
+      slug: profile.slug,
+      name: profile.name,
+      introduction: profile.introduction,
+      fictional: profile.fictional === true,
+      hasWork: hasWork(profile),
+    })),
+    pagination: { page, limit, total: matches.length, pages: Math.ceil(matches.length / limit) },
+  };
+}

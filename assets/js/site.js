@@ -6,6 +6,7 @@ import { validateProfile } from './profile-schema.js';
 import {
   profileDataUrl,
   profilePageUrl,
+  queryProfiles,
   safeFamily,
   safeImage,
   safeLinks,
@@ -30,10 +31,35 @@ async function fetchJson(url) {
   return response.json();
 }
 
+// The GitHub Pages build marks its pages with data-legacy-static. That copy has
+// no server, so it reads the files written by scripts/build-pages.js, relative
+// to the page so it also works under a project path such as /legacy/.
+const isStaticSite = document.documentElement.hasAttribute('data-legacy-static');
+let staticProfiles;
+
+function loadStaticProfiles() {
+  staticProfiles ||= fetchJson(new URL('data/profiles.json', document.baseURI)).then((data) =>
+    Array.isArray(data?.profiles) ? data.profiles : [],
+  );
+  return staticProfiles;
+}
+
 async function loadProfiles() {
   const query = new URLSearchParams(window.location.search);
+  if (isStaticSite) return queryProfiles(await loadStaticProfiles(), query);
   const response = await fetchJson(`/api/profiles?${query}`);
   return response;
+}
+
+async function loadProfile(slug) {
+  if (!isStaticSite) return fetchJson(`/api/profiles/${encodeURIComponent(slug)}`);
+  const profile = (await loadStaticProfiles()).find((candidate) => candidate?.slug === slug);
+  if (!profile) throw new Error('Profile not found');
+  return profile;
+}
+
+function loadConfig() {
+  return fetchJson(isStaticSite ? new URL('data/config.json', document.baseURI) : '/api/config');
 }
 
 function profileCard(profile) {
@@ -60,7 +86,12 @@ function renderList(container, profiles, pagination) {
   if (profiles.length === 0) {
     container.replaceChildren(
       el('p', 'No profiles have been published yet.', 'status'),
-      el('p', 'The first one could be yours — create an account to draft a profile.'),
+      el(
+        'p',
+        isStaticSite
+          ? 'This is a read-only copy of the archive.'
+          : 'The first one could be yours — create an account to draft a profile.',
+      ),
     );
     return;
   }
@@ -226,7 +257,7 @@ async function initProfilePage(container) {
   }
   setStatus(container, 'Loading profile…');
   try {
-    const profile = await fetchJson(`/api/profiles/${encodeURIComponent(slug)}`);
+    const profile = await loadProfile(slug);
     if (!validateProfile(profile).valid) {
       setStatus(container, 'This profile could not be displayed because its file is not valid.');
       return;
@@ -245,7 +276,7 @@ if (profileContainer) initProfilePage(profileContainer);
 
 const removalContact = document.querySelector('[data-removal-contact]');
 if (removalContact) {
-  fetchJson('/api/config')
+  loadConfig()
     .then((config) => {
       if (config.removalContact) {
         const link = el('a', 'Private removal contact');

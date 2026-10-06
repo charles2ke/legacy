@@ -1,0 +1,53 @@
+name: Deploy public profiles to GitHub Pages
+
+# Publishes a read-only copy of the public profile directory (see
+# scripts/build-pages.js). Deploys only from main or a manual run on main; pull
+# request code is never deployed. A maintainer must first set
+# Settings -> Pages -> Source to "GitHub Actions"; see docs/DEPLOYMENT.md.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build static site
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Build site
+        env:
+          PUBLIC_REMOVAL_URL: ${{ vars.PUBLIC_REMOVAL_URL }}
+        run: node scripts/build-pages.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

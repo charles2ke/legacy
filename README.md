@@ -70,6 +70,8 @@ npm test              # run all Node tests
 npm run validate      # validate retained JSON archive files
 npm run build         # validation and production source checks
 npm run test:e2e      # browser lifecycle test (requires its documented env)
+npm run build:pages   # build the read-only GitHub Pages copy into _site/
+npm run test:e2e:pages # browser check of that copy, served under /legacy/
 npm audit --omit=dev  # check runtime dependencies
 ```
 
