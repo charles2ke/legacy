@@ -31,6 +31,8 @@ jobs:
         run: npm test
       - name: Install browser
         run: npx playwright install --with-deps chromium
+      - name: Run GitHub Pages browser check
+        run: npm run test:e2e:pages
       - name: Bootstrap browser-test moderator
         env:
           DATABASE_PATH: /tmp/legacy-e2e.sqlite

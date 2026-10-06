@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   profileDataUrl,
   profilePageUrl,
+  queryProfiles,
   safeFamily,
   safeImage,
   safeLinks,
@@ -110,4 +111,40 @@ test('safeLinks keeps labelled links and drops unsafe or incomplete ones', () =>
     ],
   );
   assert.deepEqual(safeLinks(undefined), []);
+});
+
+test('static profile queries filter, sort and page like the API', () => {
+  const profiles = [
+    { slug: 'b', name: 'beta', introduction: 'Second.', story: 'Has a garden.', carryForward: 'x', work: [{ title: 'T' }] },
+    { slug: 'a', name: 'Alpha', introduction: 'First.', story: 'S.', carryForward: 'x', fictional: true },
+    { slug: 'c', name: 'Gamma', introduction: 'Third.', story: 'S.', carryForward: 'Plant a GARDEN.' },
+    { slug: '../bad', name: 'Bad', introduction: 'x', story: 'x', carryForward: 'x' },
+  ];
+  const all = queryProfiles(profiles);
+  assert.deepEqual(
+    all.profiles.map((profile) => profile.slug),
+    ['a', 'b', 'c'],
+  );
+  assert.deepEqual(all.pagination, { page: 1, limit: 12, total: 3, pages: 1 });
+  assert.deepEqual(all.profiles[0], {
+    slug: 'a',
+    name: 'Alpha',
+    introduction: 'First.',
+    fictional: true,
+    hasWork: false,
+  });
+
+  const search = (query) => queryProfiles(profiles, new URLSearchParams(query)).profiles.map((p) => p.slug);
+  assert.deepEqual(search('q=garden'), ['b', 'c']);
+  assert.deepEqual(search('fictional=true'), ['a']);
+  assert.deepEqual(search('fictional=false'), ['b', 'c']);
+  assert.deepEqual(search('hasWork=true'), ['b']);
+  assert.deepEqual(search('limit=2&page=2'), ['c']);
+  assert.deepEqual(queryProfiles(profiles, new URLSearchParams('limit=2&page=2')).pagination, {
+    page: 2,
+    limit: 2,
+    total: 3,
+    pages: 2,
+  });
+  assert.deepEqual(queryProfiles(undefined).profiles, []);
 });
