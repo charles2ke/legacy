@@ -123,7 +123,7 @@ export async function createApp({ config, database, mailer, logger = console, au
 
   const { generateToken, csrfSynchronisedProtection } = csrfSync();
   app.get('/api/csrf', (req, res) => res.json({ token: generateToken(req) }));
-  app.use('/api', csrfSynchronisedProtection());
+  app.use('/api', csrfSynchronisedProtection);
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
