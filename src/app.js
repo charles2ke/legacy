@@ -114,7 +114,7 @@ async function ownedProfile(database, profileId, userId) {
   );
 }
 
-export async function createApp({ config, database, mailer, logger = console, authLimit = 10 }) {
+export async function createApp({ config, database, mailer, logger = console, authLimit = 10, apiLimit = 300 }) {
   const app = express();
   const requireUser = authenticate(database, config.sessionSecret);
   if (config.trustProxy) app.set('trust proxy', 1);
@@ -127,6 +127,18 @@ export async function createApp({ config, database, mailer, logger = console, au
           'script-src': ["'self'"],
         },
       },
+    }),
+  );
+  // Counted before the body, session or CSRF token is processed. The stricter
+  // per-route limits below still apply on top of this one.
+  app.use(
+    '/api',
+    rateLimit({
+      windowMs: 60 * 1000,
+      limit: apiLimit,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      message: { error: 'Too many requests; try again later' },
     }),
   );
   app.use(express.json({ limit: '100kb' }));

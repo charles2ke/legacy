@@ -14,8 +14,9 @@ fabricate one. GitHub private vulnerability reporting may be used if enabled.
 - Server-side SQLite sessions with HTTP-only, SameSite=Lax cookies and Secure
   cookies in production.
 - Synchronizer-token CSRF protection on state-changing API requests.
-- Rate limiting on sign-up, login, recovery, password change, account deletion
-  and data export endpoints.
+- A limit of 300 API requests a minute per IP address, counted before the
+  session or CSRF token is checked, and stricter limits on sign-up, login,
+  recovery, password change, account deletion and data export endpoints.
 - Password changes and account deletion require the current password; a
   password change signs out every other session.
 - Each session is bound to an HMAC of the account's current password hash,

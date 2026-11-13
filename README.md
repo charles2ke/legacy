@@ -43,6 +43,9 @@ material.
 - `express-session` uses an application SQLite store. Cookies are HTTP-only,
   SameSite=Lax, and Secure in production.
 - Argon2id hashes passwords. `csrf-sync` protects state-changing API requests.
+- `express-rate-limit` allows 300 API requests a minute per IP address, with
+  stricter limits on sign-up, sign-in, recovery, password change, account
+  deletion and export routes.
 - `assets/js/profile-schema.js` remains the shared profile validator used by
   the browser-era JSON checks and the backend.
 - Nodemailer sends password recovery mail only when SMTP is configured.
@@ -108,7 +111,7 @@ On 2026-11-13 this version was checked locally on Node.js 26.12.1 (CI uses
 Node.js 24) with:
 
 - `npm run build`: profile validation and source checks passed.
-- `npm test`: all 109 tests passed.
+- `npm test`: all 115 tests passed.
 - `npm audit --omit=dev`: 0 known runtime vulnerabilities.
 - a migration smoke test (applied twice to a new database) and a JSON import
   smoke test passed; the imported profile remained unowned and unpublished.
