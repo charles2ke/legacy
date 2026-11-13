@@ -14,11 +14,23 @@ fabricate one. GitHub private vulnerability reporting may be used if enabled.
 - Server-side SQLite sessions with HTTP-only, SameSite=Lax cookies and Secure
   cookies in production.
 - Synchronizer-token CSRF protection on state-changing API requests.
-- Rate limiting on sign-up, login and recovery endpoints.
+- Rate limiting on sign-up, login, recovery, password change, account deletion
+  and data export endpoints.
+- Password changes and account deletion require the current password; a
+  password change signs out every other session.
+- Each session is bound to an HMAC of the account's current password hash,
+  checked on every authenticated request. A password change, password reset or
+  account deletion therefore ends other sessions, even if a request still in
+  progress writes its session back. A session never carries over to a new
+  account that SQLite gives a deleted account's ID.
 - Server-side validation and owner checks on every profile mutation.
 - Server-only roles and ownership; request bodies cannot assign either.
 - Moderator-only review and audit endpoints that verify the current database
   role on every privileged request.
+- Moderation decisions name the reviewed revision and a SHA-256 hash of its
+  content, and are refused unless the current draft matches both. Unreviewed
+  text cannot be published, even if the profile was deleted and recreated with
+  the same IDs.
 - Separate approved and draft revisions; public queries require an approved
   revision.
 - Plain-text DOM rendering, allow-listed URL schemes and no server-side URL

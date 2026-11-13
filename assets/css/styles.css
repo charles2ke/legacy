@@ -7,6 +7,8 @@
   --accent-strong: #123a30;
   --border: #d8d5cc;
   --focus: #b44b00;
+  --added-bg: #e1f3e8;
+  --removed-bg: #fbe4e4;
   --radius: 10px;
   --measure: 66ch;
 }
@@ -21,6 +23,8 @@
     --accent-strong: #b8e6d6;
     --border: #39413f;
     --focus: #ffb26b;
+    --added-bg: #1b3a2c;
+    --removed-bg: #48222a;
   }
 }
 
@@ -42,6 +46,9 @@ body {
 h1,
 h2,
 h3,
+h4,
+h5,
+h6,
 nav,
 .badge,
 .button {
@@ -136,6 +143,18 @@ pre {
 
 .moderation-card {
   margin-bottom: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.moderation-card h2 {
+  margin-top: 0;
+}
+
+.review-facts {
+  color: var(--muted);
 }
 
 a {
@@ -352,7 +371,7 @@ li {
   max-width: var(--measure);
 }
 
-.work-list h3 {
+.work-list :is(h3, h4, h5, h6) {
   margin: 0 0 0.25rem;
 }
 
@@ -397,6 +416,171 @@ li {
     width: 100%;
     text-align: center;
   }
+}
+
+/* Hidden visually but still read by screen readers. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+fieldset.entry {
+  background: var(--bg);
+  margin: 1rem 0;
+}
+
+fieldset.entry [data-remove] {
+  margin-top: 1rem;
+}
+
+.editor-status {
+  margin: 1.5rem 0;
+}
+
+.editor-status h2 {
+  margin-top: 0;
+}
+
+.profile-preview {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+/* Previews sit under the page's own headings, so their heading levels vary.
+   Size them by position to match the public profile page. */
+.profile-preview .profile-header :is(h2, h3, h4, h5, h6) {
+  font-size: 1.6rem;
+  margin: 0 0 0.5rem;
+}
+
+.profile-preview .profile-section > :is(h3, h4, h5, h6) {
+  font-size: 1.25rem;
+  margin: 1.75rem 0 0.5rem;
+}
+
+.profile-preview .work-list :is(h4, h5, h6) {
+  font-size: 1.05rem;
+}
+
+.problems ul {
+  margin: 0.5rem 0 0;
+}
+
+details {
+  margin: 1rem 0;
+}
+
+summary {
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.change h4 {
+  margin: 1.25rem 0 0.4rem;
+}
+
+.diff {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.diff-line {
+  position: relative;
+  max-width: none;
+  margin: 0;
+  padding: 0.2rem 0.75rem 0.2rem 2rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff-marker {
+  position: absolute;
+  left: 0.75rem;
+  font-weight: 700;
+}
+
+.diff-added {
+  background: var(--added-bg);
+}
+
+.diff-removed {
+  background: var(--removed-bg);
+}
+
+.diff-skipped {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.diff ins,
+.diff del {
+  text-decoration: none;
+}
+
+.url-list li {
+  overflow-wrap: anywhere;
+}
+
+.button.danger {
+  background: #a32121;
+  color: #ffffff;
+}
+
+.button.danger:hover {
+  background: #7a1717;
+  color: #ffffff;
+}
+
+.table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+caption {
+  padding: 0.75rem;
+  text-align: left;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-weight: 600;
+}
+
+th,
+td {
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+td time {
+  white-space: nowrap;
 }
 
 /* The GitHub Pages copy (scripts/build-pages.js) has no server, so links to
