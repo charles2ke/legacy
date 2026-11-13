@@ -22,6 +22,23 @@ Operators with database or backup access can access private data and must limit
 that access. Do not submit sensitive evidence of consent, identity, death,
 relationship or authority through public issues.
 
+## Your copy of your data
+
+Signed-in owners can download a JSON file from the Account page
+(`GET /api/me/export`). It contains:
+
+- the account email, role and creation date;
+- every saved revision of each profile they own, with its draft and approved
+  versions and consent time;
+- the moderation decisions and feedback about those profiles;
+- the audit events the account performed.
+
+It does not identify which moderator made a decision, and it never includes
+password hashes, sessions or reset tokens.
+
+Changing a password from the Account page requires the current password. It
+signs out every other session and cancels unused reset links.
+
 ## Consent and review
 
 Submitting requires an explicit publication-consent checkbox. A moderator must
@@ -33,8 +50,27 @@ authorized, so moderation remains necessary.
 ## Removal and deletion
 
 Owners can unpublish immediately or delete their profile and revisions from the
-live database. Account deletion is not yet a self-service feature; an operator
-must handle it under the applicable policy after resolving owned profiles.
+live database. Deleting a profile also deletes its moderation decisions,
+feedback and audit events. One audit event remains, recording that profile
+number N was deleted and whether it had been published.
+
+Owners can also delete their whole account from the Account page after
+re-entering their password and confirming. This deletes, from the live
+database:
+
+- the account and its sessions and reset tokens;
+- every profile it owns, published or not, with the revisions, decisions,
+  feedback and audit events that belong to those profiles.
+
+What remains in the audit log:
+
+- one event saying that an account was deleted and how many profiles it owned,
+  with no email address or account link;
+- earlier events not about one of its profiles, such as password changes and
+  earlier profile deletions, with their link to the account removed.
+
+Moderator accounts cannot delete themselves, because their decisions must stay
+attributable. An operator handles those under the applicable policy.
 
 `PUBLIC_REMOVAL_URL` may expose a public email link or contact form. No real
 contact route is supplied by this repository. When it is not configured, the

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Your account — Legacy</title><link rel="stylesheet" href="assets/css/styles.css" /><script type="module" src="assets/js/app.js"></script></head>
+  <body><a class="skip-link" href="#main">Skip to main content</a><header class="site-header"><div class="wrap"><a class="site-title" href="index.html">Legacy</a><nav class="site-nav" aria-label="Account"><ul><li><a href="dashboard.html">Dashboard</a></li><li><button type="button" data-logout>Sign out</button></li></ul></nav></div></header>
+    <main id="main" class="wrap" data-account-page><h1>Your account</h1><p data-account></p><p tabindex="-1" role="alert" data-message></p>
+      <section aria-labelledby="password-heading"><h2 id="password-heading">Change password</h2><p>Changing your password signs you out everywhere else and cancels any password reset links that have not been used.</p>
+        <form data-password-form>
+          <label for="currentPassword">Current password</label><input id="currentPassword" name="currentPassword" type="password" autocomplete="current-password" required />
+          <label for="newPassword">New password (12 to 200 characters)</label><input id="newPassword" name="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="200" required />
+          <div class="actions"><button class="button" type="submit">Change password</button></div>
+          <p tabindex="-1" role="alert" data-form-message></p>
+        </form>
+      </section>
+      <section aria-labelledby="export-heading"><h2 id="export-heading">Download your data</h2><p>A JSON file with your account details, every saved revision of each of your profiles, moderator decisions and feedback about them, and the activity recorded for your account. It does not say which moderator made a decision.</p>
+        <p><a class="button" href="/api/me/export" download>Download my data</a></p>
+      </section>
+      <section aria-labelledby="delete-heading"><h2 id="delete-heading">Delete your account</h2>
+        <p data-moderator-note hidden>Moderator accounts cannot be deleted here, because moderation decisions must stay attributable. Ask the site operator.</p>
+        <form data-delete-form>
+          <p>This permanently deletes your account and every profile you own, including published ones, and signs you out. It cannot be undone. Download your data first if you want a copy.</p>
+          <label for="deletePassword">Password</label><input id="deletePassword" name="password" type="password" autocomplete="current-password" required />
+          <label><input name="confirm" type="checkbox" required /> I understand that my account and all of my profiles will be permanently deleted.</label>
+          <div class="actions"><button class="button danger" type="submit">Delete my account</button></div>
+          <p tabindex="-1" role="alert" data-form-message></p>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

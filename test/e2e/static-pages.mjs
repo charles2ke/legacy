@@ -62,9 +62,19 @@ try {
   assert.match(await page.locator('[data-profile-list]').textContent(), /Page 1 of 1 · 1 profile/);
   await page.screenshot({ path: 'test-results/pages-profiles.png', fullPage: true });
 
+  // Memories are searched as well as the name, introduction and story.
+  await page.getByLabel('Search approved profiles').fill('outlasted three laptops');
+  await page.getByRole('button', { name: 'Search' }).click();
+  await page.getByRole('link', { name: 'Clear search and filters' }).waitFor();
+  await page.getByRole('link', { name: 'River Okonkwo (fictional example)' }).waitFor();
+  assert.equal(await page.getByLabel('Search approved profiles').inputValue(), 'outlasted three laptops');
+
   await page.getByLabel('Search approved profiles').fill('nobody-matches-this');
   await page.getByRole('button', { name: 'Search' }).click();
-  await page.getByText('No profiles have been published yet.').waitFor();
+  await page.getByText('No profiles match your search.').waitFor();
+  await page.getByRole('link', { name: 'Clear search and filters' }).click();
+  await page.getByRole('link', { name: 'River Okonkwo (fictional example)' }).waitFor();
+  assert.equal(await page.getByLabel('Search approved profiles').inputValue(), '');
 
   await page.goto(`${baseUrl}profiles.html?fictional=true`);
   await page.getByRole('link', { name: 'River Okonkwo (fictional example)' }).click();

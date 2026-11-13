@@ -8,6 +8,33 @@ It cannot promise permanent hosting, prevent all copies, verify identity, or
 ensure that anyone is never forgotten. Keep independent copies of important
 material.
 
+## Features
+
+- **Guided editor.** Owners can add as many work items, links and family
+  members as the schema allows (20, 10 and 20). They can preview the profile as
+  readers will see it, with any validation problems listed. Editing after a
+  preview clears it and asks them to preview again. A status panel
+  shows whether it is a private draft, waiting for review, published, or sent
+  back with feedback. Submitting saves unsaved changes first. Fields the editor
+  does not show, such as `visibility`, are kept unchanged.
+- **Moderator review.** Each queued profile shows what changed since its
+  published version and lists every outside address it points to. Its preview
+  loads outside images only on request. A decision applies only to the revision
+  the moderator saw: if the owner saves a newer one in the meantime, the
+  decision is refused and the moderator reloads.
+- **Audit log.** Moderators can page through profile and account events on
+  `audit.html`. Private drafts appear by number, without their address.
+- **Account self-service.** On `account.html` owners can:
+  - change their password, which signs out their other sessions and cancels
+    unused reset links;
+  - download a JSON export of their data;
+  - delete their account and every profile they own.
+- **Public directory.** Search covers the name, introduction, story,
+  autobiography, values, memories and carry-forward text of approved profiles,
+  but not family names. The search box keeps the query, and a "Clear search and
+  filters" link resets it. The server links a family member only when the
+  address belongs to a currently published profile.
+
 ## Architecture
 
 - Node.js 24 and Express serve the site and JSON API.
@@ -77,16 +104,28 @@ npm audit --omit=dev  # check runtime dependencies
 
 ## Validation status
 
-On 2026-09-21 the implementation was checked locally with:
+On 2026-11-13 this version was checked locally on Node.js 26.12.1 (CI uses
+Node.js 24) with:
 
-- `npm run build` — profile validation and source checks passed.
-- `npm test` — all 50 tests passed.
-- `npm audit --omit=dev` — 0 known runtime vulnerabilities.
-- a migration smoke test and JSON import smoke test — passed; the imported
-  profile remained unowned and unpublished.
-- `npm run test:e2e` — owner editing/submission, moderator approval, public
-  directory and public detail passed in Chromium; four screenshots were
-  generated.
+- `npm run build`: profile validation and source checks passed.
+- `npm test`: all 109 tests passed.
+- `npm audit --omit=dev`: 0 known runtime vulnerabilities.
+- a migration smoke test (applied twice to a new database) and a JSON import
+  smoke test passed; the imported profile remained unowned and unpublished.
+- `npm run test:e2e` passed in Chromium three times in a row, each on a new
+  database. It covers:
+  - editing with repeatable entries, then previewing (including the preview
+    clearing after a later edit) and submitting;
+  - a decision refused because the owner changed the profile meanwhile, then
+    approval;
+  - directory search and the public profile;
+  - reviewing changes and sending them back with feedback;
+  - the audit log;
+  - data export, password change and account deletion.
+
+  The test saves nine screenshots.
+- `npm run test:e2e:pages`: the read-only GitHub Pages copy, including
+  directory search, passed in Chromium.
 
 These results do not verify external SMTP delivery, production TLS, persistent
 hosting, backups, monitoring or a real private removal contact. Those remain
@@ -118,8 +157,9 @@ non-secret, isolated test-only values.
 
 Profile states are `draft`, `pending`, `approved`, and `rejected`. An approved
 revision remains separate from later edits, so a pending or rejected edit never
-leaks publicly. Owners can unpublish or delete their profiles. Public list,
-search, slug, and ID endpoints query only `approved_revision_id`.
+leaks publicly. Owners can unpublish or delete their profiles, or delete their
+account and every profile it owns. Public list, search, slug, and ID endpoints
+query only `approved_revision_id`.
 
 Profiles retain the original required fields (`slug`, `name`, `introduction`,
 `story`, and `carryForward`) plus optional values, work, memories, image and

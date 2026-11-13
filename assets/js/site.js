@@ -3,23 +3,10 @@
 // scripts are never executed.
 
 import { validateProfile } from './profile-schema.js';
-import {
-  profileDataUrl,
-  profilePageUrl,
-  queryProfiles,
-  safeFamily,
-  safeImage,
-  safeLinks,
-  safeWork,
-  toParagraphs,
-} from './render.js';
+import { el, renderProfileParts } from './profile-view.js';
+import { profileDataUrl, profilePageUrl, queryProfiles } from './render.js';
 
-function el(tag, text, className) {
-  const node = document.createElement(tag);
-  if (text !== undefined && text !== null) node.textContent = text;
-  if (className) node.className = className;
-  return node;
-}
+const FILTER_KEYS = ['q', 'fictional', 'hasWork'];
 
 function setStatus(container, message) {
   container.replaceChildren(el('p', message, 'status'));
@@ -82,8 +69,37 @@ function profileCard(profile) {
   return card;
 }
 
+function hasActiveFilters(query) {
+  return FILTER_KEYS.some((key) => (query.get(key) || '').trim() !== '');
+}
+
+function clearFiltersLink() {
+  const paragraph = el('p');
+  const link = el('a', 'Clear search and filters');
+  link.href = 'profiles.html';
+  paragraph.append(link);
+  return paragraph;
+}
+
+/** Shows the current search and filters in the form after the page reloads. */
+function populateFilters(form) {
+  const query = new URLSearchParams(window.location.search);
+  if (form.elements.q) form.elements.q.value = query.get('q') || '';
+  if (form.elements.fictional) {
+    const fictional = query.get('fictional');
+    form.elements.fictional.value = fictional === 'true' || fictional === 'false' ? fictional : '';
+  }
+  if (form.elements.hasWork) form.elements.hasWork.checked = query.get('hasWork') === 'true';
+}
+
 function renderList(container, profiles, pagination) {
+  const query = new URLSearchParams(window.location.search);
+  const filtered = hasActiveFilters(query);
   if (profiles.length === 0) {
+    if (filtered) {
+      container.replaceChildren(el('p', 'No profiles match your search.', 'status'), clearFiltersLink());
+      return;
+    }
     container.replaceChildren(
       el('p', 'No profiles have been published yet.', 'status'),
       el(
@@ -104,7 +120,6 @@ function renderList(container, profiles, pagination) {
   );
   const navigation = el('nav', null, 'pagination');
   navigation.setAttribute('aria-label', 'Profile pages');
-  const query = new URLSearchParams(window.location.search);
   if (pagination.page > 1) {
     query.set('page', String(pagination.page - 1));
     const previous = el('a', '← Previous');
@@ -117,124 +132,15 @@ function renderList(container, profiles, pagination) {
     next.href = `?${query}`;
     navigation.append(next);
   }
-  container.replaceChildren(summary, list, navigation);
-}
-
-function section(title, node) {
-  const wrapper = el('section', null, 'profile-section');
-  wrapper.append(el('h2', title));
-  wrapper.append(node);
-  return wrapper;
+  container.replaceChildren(summary, ...(filtered ? [clearFiltersLink()] : []), list, navigation);
 }
 
 function renderProfile(container, profile) {
-  const parts = [];
-
-  const header = el('header', null, 'profile-header');
-  header.append(el('h1', profile.name));
-  if (profile.fictional) {
-    header.append(el('p', 'Fictional demonstration profile', 'badge'));
-  }
-  header.append(el('p', profile.introduction, 'lede'));
-  parts.push(header);
-
-  const image = safeImage(profile.image);
-  if (image) {
-    const figure = el('figure', null, 'profile-image');
-    const img = el('img');
-    img.src = image.src;
-    img.alt = image.alt;
-    img.loading = 'lazy';
-    figure.append(img);
-    parts.push(figure);
-  }
-
-  const story = el('div');
-  for (const paragraph of toParagraphs(profile.story)) story.append(el('p', paragraph));
-  parts.push(section('My story', story));
-
-  const autobiography = toParagraphs(profile.autobiography);
-  if (autobiography.length > 0) {
-    const longForm = el('div');
-    for (const paragraph of autobiography) longForm.append(el('p', paragraph));
-    parts.push(section('My autobiography', longForm));
-  }
-
-  if (Array.isArray(profile.values) && profile.values.length > 0) {
-    const list = el('ul');
-    for (const value of profile.values) list.append(el('li', value));
-    parts.push(section('What I believe', list));
-  }
-
-  const work = safeWork(profile.work);
-  if (work.length > 0) {
-    const list = el('ul', null, 'work-list');
-    for (const item of work) {
-      const entry = el('li');
-      const heading = el('h3');
-      if (item.url) {
-        const link = el('a', item.title);
-        link.href = item.url;
-        link.rel = 'nofollow ugc';
-        heading.append(link);
-      } else {
-        heading.textContent = item.title;
-      }
-      entry.append(heading);
-      if (item.description) entry.append(el('p', item.description));
-      list.append(entry);
-    }
-    parts.push(section('Things I made', list));
-  }
-
-  const links = safeLinks(profile.links);
-  if (links.length > 0) {
-    const list = el('ul', null, 'link-list');
-    for (const item of links) {
-      const entry = el('li');
-      const link = el('a', item.label);
-      link.href = item.url;
-      link.rel = 'nofollow ugc';
-      entry.append(link);
-      list.append(entry);
-    }
-    parts.push(section('Where to find me', list));
-  }
-
-  if (Array.isArray(profile.memories) && profile.memories.length > 0) {
-    const list = el('ul');
-    for (const memory of profile.memories) list.append(el('li', memory));
-    parts.push(section('Memories', list));
-  }
-
-  const family = safeFamily(profile.family);
-  if (family.length > 0) {
-    const list = el('ul', null, 'family-list');
-    for (const relation of family) {
-      const entry = el('li');
-      entry.append(el('span', `${relation.label}: `, 'family-relation'));
-      if (relation.href) {
-        const link = el('a', relation.name);
-        link.href = relation.href;
-        entry.append(link);
-      } else {
-        entry.append(el('span', relation.name));
-      }
-      if (relation.note) entry.append(el('p', relation.note));
-      list.append(entry);
-    }
-    parts.push(section('Family', list));
-  }
-
-  parts.push(section('What I hope you carry forward', el('p', profile.carryForward)));
-
   const back = el('p', null, 'back-link');
   const backLink = el('a', '← All profiles');
   backLink.href = 'profiles.html';
   back.append(backLink);
-  parts.push(back);
-
-  container.replaceChildren(...parts);
+  container.replaceChildren(...renderProfileParts(profile), back);
   document.title = `${profile.name} — Legacy`;
 }
 
@@ -267,6 +173,9 @@ async function initProfilePage(container) {
     setStatus(container, 'This profile could not be found.');
   }
 }
+
+const filterForm = document.querySelector('[data-profile-filters]');
+if (filterForm) populateFilters(filterForm);
 
 const listContainer = document.querySelector('[data-profile-list]');
 if (listContainer) initListPage(listContainer);

@@ -30,7 +30,15 @@ test('builds a static copy of the public pages and profiles', async (t) => {
 
   // Account pages and their browser code need the server, so they are not published.
   const published = await readdir(out);
-  for (const page of ['login.html', 'signup.html', 'dashboard.html', 'editor.html', 'moderator.html']) {
+  for (const page of [
+    'login.html',
+    'signup.html',
+    'dashboard.html',
+    'editor.html',
+    'account.html',
+    'moderator.html',
+    'audit.html',
+  ]) {
     assert.ok(!published.includes(page), `${page} should not be published`);
   }
   await assert.rejects(access(path.join(out, 'assets', 'js', 'app.js')));

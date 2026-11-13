@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,6 +10,7 @@ import session from 'express-session';
 import helmet from 'helmet';
 
 import { validateProfile } from '../assets/js/profile-schema.js';
+import { SEARCH_LIST_FIELDS, SEARCH_TEXT_FIELDS } from '../assets/js/render.js';
 import { SESSION_MAX_AGE_MS } from './config.js';
 import { SqliteSessionStore } from './session-store.js';
 
@@ -45,21 +46,46 @@ function parseContent(row, key = 'content_json') {
   return row?.[key] ? JSON.parse(row[key]) : null;
 }
 
-function requireUser(req, res, next) {
-  if (!req.session.userId) return jsonError(res, 401, 'Authentication required');
-  next();
+function contentHash(contentJson) {
+  return createHash('sha256').update(contentJson).digest('hex');
 }
 
-function requireModerator(database) {
+// A session is bound to the account's current password hash and checked on
+// every request. Deleting session rows is not enough on its own: a request
+// still running writes its session back when it finishes, and SQLite can give
+// a deleted account's id to the next new account.
+function sessionAuthHash(secret, passwordHash) {
+  return createHmac('sha256', secret).update(passwordHash).digest('base64url');
+}
+
+async function startSession(req, secret, userId, passwordHash) {
+  await sessionRegenerate(req);
+  req.session.userId = userId;
+  req.session.authHash = sessionAuthHash(secret, passwordHash);
+}
+
+function authenticate(database, secret) {
   return async (req, res, next) => {
     try {
-      const user = await database.get('SELECT role FROM users WHERE id = ?', [req.session.userId]);
-      if (user?.role !== 'moderator') return jsonError(res, 403, 'Moderator access required');
+      if (!req.session.userId) return jsonError(res, 401, 'Authentication required');
+      const user = await database.get('SELECT id, role, password_hash FROM users WHERE id = ?', [
+        req.session.userId,
+      ]);
+      if (!user || req.session.authHash !== sessionAuthHash(secret, user.password_hash)) {
+        await sessionDestroy(req);
+        return jsonError(res, 401, 'Authentication required');
+      }
+      req.user = { id: user.id, role: user.role };
       next();
     } catch (error) {
       next(error);
     }
   };
+}
+
+function moderatorOnly(req, res, next) {
+  if (req.user?.role !== 'moderator') return jsonError(res, 403, 'Moderator access required');
+  next();
 }
 
 function sessionRegenerate(req) {
@@ -90,7 +116,7 @@ async function ownedProfile(database, profileId, userId) {
 
 export async function createApp({ config, database, mailer, logger = console, authLimit = 10 }) {
   const app = express();
-  const moderatorOnly = requireModerator(database);
+  const requireUser = authenticate(database, config.sessionSecret);
   if (config.trustProxy) app.set('trust proxy', 1);
   app.disable('x-powered-by');
   app.use(
@@ -158,8 +184,7 @@ export async function createApp({ config, database, mailer, logger = console, au
         if (error.code === 'SQLITE_CONSTRAINT') return jsonError(res, 409, 'An account already exists');
         throw error;
       }
-      await sessionRegenerate(req);
-      req.session.userId = result.lastID;
+      await startSession(req, config.sessionSecret, result.lastID, passwordHash);
       res.status(201).json({ id: result.lastID, role: 'owner' });
     } catch (error) {
       next(error);
@@ -174,8 +199,7 @@ export async function createApp({ config, database, mailer, logger = console, au
       if (!user || !(await argon2.verify(user.password_hash, req.body.password || ''))) {
         return jsonError(res, 401, 'Invalid email or password');
       }
-      await sessionRegenerate(req);
-      req.session.userId = user.id;
+      await startSession(req, config.sessionSecret, user.id, user.password_hash);
       res.json({ id: user.id, role: user.role });
     } catch (error) {
       next(error);
@@ -239,11 +263,27 @@ export async function createApp({ config, database, mailer, logger = console, au
       );
       if (!reset) return jsonError(res, 400, 'Reset link is invalid or expired');
       const passwordHash = await argon2.hash(req.body.password, { type: argon2.argon2id });
-      await database.transaction(async (transaction) => {
-        await transaction.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, reset.user_id]);
-        await transaction.run('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?', [reset.id]);
+      const updated = await database.transaction(async (transaction) => {
+        const now = new Date().toISOString();
+        const currentReset = await transaction.get(
+          `SELECT user_id FROM password_reset_tokens
+            WHERE id = ? AND token_hash = ? AND used_at IS NULL AND expires_at > ?`,
+          [reset.id, tokenHash, now],
+        );
+        if (!currentReset || currentReset.user_id !== reset.user_id) return false;
+        const account = await transaction.get('SELECT id FROM users WHERE id = ?', [currentReset.user_id]);
+        if (!account) return false;
+        const consumed = await transaction.run(
+          `UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND token_hash = ? AND used_at IS NULL AND expires_at > ?`,
+          [reset.id, tokenHash, now],
+        );
+        if (consumed.changes !== 1) return false;
+        await transaction.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, account.id]);
         await transaction.run(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`, [reset.user_id]);
+        return true;
       });
+      if (!updated) return jsonError(res, 400, 'Reset link is invalid or expired');
       res.json({ message: 'Password updated. Sign in with the new password.' });
     } catch (error) {
       next(error);
@@ -256,6 +296,185 @@ export async function createApp({ config, database, mailer, logger = console, au
         req.session.userId,
       ]);
       res.json(user);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/me/password', requireUser, authLimiter, async (req, res, next) => {
+    try {
+      const currentPassword = req.body?.currentPassword;
+      const newPassword = req.body?.newPassword;
+      if (typeof currentPassword !== 'string' || !currentPassword) {
+        return jsonError(res, 400, 'Enter your current password');
+      }
+      if (!validPassword(newPassword)) return jsonError(res, 400, 'New password must be between 12 and 200 characters');
+      if (newPassword === currentPassword) {
+        return jsonError(res, 400, 'Choose a new password that is different from your current one');
+      }
+      const user = await database.get('SELECT id, password_hash FROM users WHERE id = ?', [req.session.userId]);
+      if (!user) return jsonError(res, 401, 'Authentication required');
+      if (!(await argon2.verify(user.password_hash, currentPassword))) {
+        return jsonError(res, 403, 'Current password is incorrect');
+      }
+      const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+      const updated = await database.transaction(async (transaction) => {
+        const current = await transaction.get('SELECT id, password_hash FROM users WHERE id = ?', [user.id]);
+        if (
+          !current ||
+          current.password_hash !== user.password_hash ||
+          req.session.authHash !== sessionAuthHash(config.sessionSecret, current.password_hash)
+        ) {
+          return false;
+        }
+        const changed = await transaction.run(
+          'UPDATE users SET password_hash = ? WHERE id = ? AND password_hash = ?',
+          [passwordHash, user.id, user.password_hash],
+        );
+        if (changed.changes !== 1) return false;
+        await transaction.run(
+          'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND used_at IS NULL',
+          [user.id],
+        );
+        // Sign out every session, including this one; a fresh session is issued below.
+        await transaction.run(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`, [user.id]);
+        await audit(transaction, user.id, null, 'account.password_changed');
+        return true;
+      });
+      if (!updated) return jsonError(res, 409, 'Account changed; sign in again before changing your password');
+      await startSession(req, config.sessionSecret, user.id, passwordHash);
+      res.json({ message: 'Password changed. Any other signed-in sessions have been signed out.' });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  const exportLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'Too many downloads; try again later' },
+  });
+
+  // Everything stored about the signed-in account and its profiles, including
+  // every saved revision. Moderator identities are deliberately left out.
+  app.get('/api/me/export', requireUser, exportLimiter, async (req, res, next) => {
+    try {
+      const userId = req.session.userId;
+      const exportedData = await database.transaction(async (transaction) => {
+        const user = await transaction.get(
+          'SELECT id, email, role, password_hash, created_at FROM users WHERE id = ?',
+          [userId],
+        );
+        if (!user || req.session.authHash !== sessionAuthHash(config.sessionSecret, user.password_hash)) return null;
+        const profiles = await transaction.all(
+          `SELECT id, slug, status, consented_at, created_at, updated_at, draft_revision_id, approved_revision_id
+             FROM profiles WHERE owner_user_id = ? ORDER BY id`,
+          [userId],
+        );
+        const revisions = await transaction.all(
+          `SELECT r.id, r.profile_id, r.content_json, r.created_at FROM profile_revisions r
+             JOIN profiles p ON p.id = r.profile_id WHERE p.owner_user_id = ? ORDER BY r.id`,
+          [userId],
+        );
+        const decisions = await transaction.all(
+          `SELECT m.profile_id, m.revision_id, m.decision, m.feedback, m.created_at FROM moderation_decisions m
+             JOIN profiles p ON p.id = m.profile_id WHERE p.owner_user_id = ? ORDER BY m.id`,
+          [userId],
+        );
+        const activity = await transaction.all(
+          `SELECT action, profile_id, details_json, created_at FROM audit_log
+            WHERE actor_user_id = ? ORDER BY id`,
+          [userId],
+        );
+        return { user, profiles, revisions, decisions, activity };
+      });
+      if (!exportedData) return jsonError(res, 401, 'Authentication required');
+      const { user, profiles, revisions, decisions, activity } = exportedData;
+      const contentById = new Map(revisions.map((row) => [row.id, parseContent(row)]));
+      const exportedAt = new Date().toISOString();
+      const payload = {
+        format: 'legacy-export/1',
+        exportedAt,
+        account: { email: user.email, role: user.role, createdAt: user.created_at },
+        profiles: profiles.map((profile) => ({
+          id: profile.id,
+          slug: profile.slug,
+          status: profile.status,
+          consentedAt: profile.consented_at,
+          createdAt: profile.created_at,
+          updatedAt: profile.updated_at,
+          draft: contentById.get(profile.draft_revision_id) ?? null,
+          approved: contentById.get(profile.approved_revision_id) ?? null,
+          revisions: revisions
+            .filter((row) => row.profile_id === profile.id)
+            .map((row) => ({ id: row.id, createdAt: row.created_at, content: contentById.get(row.id) })),
+          moderation: decisions
+            .filter((row) => row.profile_id === profile.id)
+            .map((row) => ({
+              revisionId: row.revision_id,
+              decision: row.decision,
+              feedback: row.feedback,
+              createdAt: row.created_at,
+            })),
+        })),
+        activity: activity.map((row) => ({
+          action: row.action,
+          profileId: row.profile_id,
+          details: parseContent(row, 'details_json'),
+          createdAt: row.created_at,
+        })),
+      };
+      res.set('Cache-Control', 'no-store');
+      res.attachment(`legacy-export-${exportedAt.slice(0, 10)}.json`);
+      res.send(`${JSON.stringify(payload, null, 2)}\n`);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete('/api/me', requireUser, authLimiter, async (req, res, next) => {
+    try {
+      if (req.body?.confirm !== true) return jsonError(res, 400, 'Confirm that you want to delete your account');
+      const user = await database.get('SELECT id, role, password_hash FROM users WHERE id = ?', [
+        req.session.userId,
+      ]);
+      if (!user) return jsonError(res, 401, 'Authentication required');
+      if (user.role === 'moderator') {
+        return jsonError(res, 403, 'Moderator accounts cannot be deleted here; ask the site operator');
+      }
+      const password = req.body.password;
+      if (typeof password !== 'string' || !password || !(await argon2.verify(user.password_hash, password))) {
+        return jsonError(res, 403, 'Password is incorrect');
+      }
+      const deleted = await database.transaction(async (transaction) => {
+        const current = await transaction.get('SELECT id, role, password_hash FROM users WHERE id = ?', [user.id]);
+        if (
+          !current ||
+          current.password_hash !== user.password_hash ||
+          current.role !== user.role ||
+          current.role === 'moderator' ||
+          req.session.authHash !== sessionAuthHash(config.sessionSecret, current.password_hash)
+        ) {
+          return false;
+        }
+        const { total } = await transaction.get('SELECT COUNT(*) AS total FROM profiles WHERE owner_user_id = ?', [
+          user.id,
+        ]);
+        const removed = await transaction.run(
+          'DELETE FROM users WHERE id = ? AND password_hash = ? AND role = ?',
+          [user.id, user.password_hash, user.role],
+        );
+        if (removed.changes !== 1) return false;
+        await transaction.run(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`, [user.id]);
+        await audit(transaction, null, null, 'account.deleted', { profilesDeleted: total });
+        return true;
+      });
+      if (!deleted) return jsonError(res, 409, 'Account changed; sign in again before deleting it');
+      await sessionDestroy(req);
+      res.clearCookie('legacy.sid');
+      res.status(204).end();
     } catch (error) {
       next(error);
     }
@@ -400,11 +619,22 @@ export async function createApp({ config, database, mailer, logger = console, au
 
   app.delete('/api/me/profiles/:id', requireUser, async (req, res, next) => {
     try {
-      const result = await database.run('DELETE FROM profiles WHERE id = ? AND owner_user_id = ?', [
-        req.params.id,
-        req.session.userId,
-      ]);
-      if (!result.changes) return jsonError(res, 404, 'Profile not found');
+      const deleted = await database.transaction(async (transaction) => {
+        const profile = await transaction.get(
+          'SELECT id, approved_revision_id FROM profiles WHERE id = ? AND owner_user_id = ?',
+          [req.params.id, req.session.userId],
+        );
+        if (!profile) return false;
+        await transaction.run('DELETE FROM profiles WHERE id = ?', [profile.id]);
+        // The profile's own audit rows cascade away, so this record keeps no
+        // link to it and stores no content such as the address.
+        await audit(transaction, req.session.userId, null, 'profile.deleted', {
+          profileId: profile.id,
+          wasPublished: profile.approved_revision_id !== null,
+        });
+        return true;
+      });
+      if (!deleted) return jsonError(res, 404, 'Profile not found');
       res.status(204).end();
     } catch (error) {
       next(error);
@@ -419,8 +649,10 @@ export async function createApp({ config, database, mailer, logger = console, au
         `SELECT COUNT(*) AS total FROM profiles WHERE status = 'pending'`,
       );
       const rows = await database.all(
-        `SELECT p.id, p.slug, p.status, p.updated_at, r.content_json
+        `SELECT p.id, p.slug, p.status, p.updated_at, p.consented_at, p.draft_revision_id,
+                r.content_json, a.content_json AS approved_json
            FROM profiles p JOIN profile_revisions r ON r.id = p.draft_revision_id
+           LEFT JOIN profile_revisions a ON a.id = p.approved_revision_id
           WHERE p.status = 'pending' ORDER BY p.updated_at ASC, p.id ASC
           LIMIT ? OFFSET ?`,
         [limit, (page - 1) * limit],
@@ -431,7 +663,11 @@ export async function createApp({ config, database, mailer, logger = console, au
           slug: row.slug,
           status: row.status,
           updatedAt: row.updated_at,
+          consentedAt: row.consented_at,
+          revisionId: row.draft_revision_id,
+          contentHash: contentHash(row.content_json),
           draft: parseContent(row),
+          approved: parseContent(row, 'approved_json'),
         })),
         pagination: { page, limit, total: count.total, pages: Math.ceil(count.total / limit) },
       });
@@ -450,24 +686,43 @@ export async function createApp({ config, database, mailer, logger = console, au
       if (req.body.decision === 'rejected' && !feedback) {
         return jsonError(res, 400, 'Rejection feedback is required');
       }
-      const profile = await database.get(
-        `SELECT id, status, draft_revision_id, consented_at FROM profiles
-          WHERE id = ? AND status = 'pending'`,
-        [req.params.id],
-      );
-      if (!profile || !profile.consented_at) return jsonError(res, 409, 'Profile is not awaiting review');
-      await database.transaction(async (transaction) => {
+      const { revisionId, contentHash: reviewedHash } = req.body;
+      if (
+        !Number.isSafeInteger(revisionId) ||
+        revisionId < 1 ||
+        typeof reviewedHash !== 'string' ||
+        !/^[0-9a-f]{64}$/.test(reviewedHash)
+      ) {
+        return jsonError(res, 400, 'The reviewed revision is required');
+      }
+      // Check and decide in one transaction, and only for the exact revision
+      // the moderator reviewed, so an edit made meanwhile is never published
+      // unreviewed. The content hash is checked too because ids are not
+      // unique over time: a deleted and recreated profile can get the same ones.
+      const conflict = await database.transaction(async (transaction) => {
+        const profile = await transaction.get(
+          `SELECT p.id, p.status, p.draft_revision_id, p.consented_at, r.content_json
+             FROM profiles p LEFT JOIN profile_revisions r ON r.id = p.draft_revision_id
+            WHERE p.id = ?`,
+          [req.params.id],
+        );
+        if (!profile || profile.status !== 'pending' || !profile.consented_at) {
+          return 'Profile is not awaiting review';
+        }
+        if (profile.draft_revision_id !== revisionId || contentHash(profile.content_json) !== reviewedHash) {
+          return 'This profile was changed after you loaded it; reload to review the latest revision';
+        }
         await transaction.run(
           `INSERT INTO moderation_decisions
              (profile_id, revision_id, moderator_user_id, decision, feedback)
            VALUES (?, ?, ?, ?, ?)`,
-          [profile.id, profile.draft_revision_id, req.session.userId, req.body.decision, feedback || null],
+          [profile.id, revisionId, req.session.userId, req.body.decision, feedback || null],
         );
         if (req.body.decision === 'approved') {
           await transaction.run(
-            `UPDATE profiles SET approved_revision_id = draft_revision_id, status = 'approved',
+            `UPDATE profiles SET approved_revision_id = ?, status = 'approved',
              updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-            [profile.id],
+            [revisionId, profile.id],
           );
         } else {
           await transaction.run(
@@ -475,11 +730,11 @@ export async function createApp({ config, database, mailer, logger = console, au
             [profile.id],
           );
         }
-        await audit(transaction, req.session.userId, profile.id, `profile.${req.body.decision}`, {
-          revisionId: profile.draft_revision_id,
-        });
+        await audit(transaction, req.session.userId, profile.id, `profile.${req.body.decision}`, { revisionId });
+        return null;
       });
-      res.json({ id: profile.id, status: req.body.decision });
+      if (conflict) return jsonError(res, 409, conflict);
+      res.json({ id: Number(req.params.id), status: req.body.decision });
     } catch (error) {
       next(error);
     }
@@ -487,11 +742,36 @@ export async function createApp({ config, database, mailer, logger = console, au
 
   app.get('/api/moderation/audit', requireUser, moderatorOnly, async (req, res, next) => {
     try {
+      const page = Math.max(1, Number.parseInt(req.query.page || '1', 10) || 1);
+      const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit || '50', 10) || 50));
+      const count = await database.get('SELECT COUNT(*) AS total FROM audit_log');
+      // A profile address is shown only once the owner has submitted it for
+      // review; private drafts stay private even from moderators.
       const rows = await database.all(
-        `SELECT id, actor_user_id, profile_id, action, details_json, created_at
-           FROM audit_log ORDER BY id DESC LIMIT 100`,
+        `SELECT l.id, l.action, l.created_at, l.actor_user_id, u.role AS actor_role, l.profile_id,
+                l.details_json, p.approved_revision_id IS NOT NULL AS profile_published,
+                CASE WHEN p.status IN ('pending', 'approved', 'rejected') OR p.approved_revision_id IS NOT NULL
+                     THEN p.slug END AS profile_slug
+           FROM audit_log l
+           LEFT JOIN users u ON u.id = l.actor_user_id
+           LEFT JOIN profiles p ON p.id = l.profile_id
+          ORDER BY l.id DESC LIMIT ? OFFSET ?`,
+        [limit, (page - 1) * limit],
       );
-      res.json({ events: rows });
+      res.json({
+        events: rows.map((row) => ({
+          id: row.id,
+          action: row.action,
+          createdAt: row.created_at,
+          actorUserId: row.actor_user_id,
+          actorRole: row.actor_role ?? null,
+          profileId: row.profile_id,
+          profileSlug: row.profile_slug ?? null,
+          profilePublished: row.profile_published === 1,
+          details: parseContent(row, 'details_json'),
+        })),
+        pagination: { page, limit, total: count.total, pages: Math.ceil(count.total / limit) },
+      });
     } catch (error) {
       next(error);
     }
@@ -505,12 +785,17 @@ export async function createApp({ config, database, mailer, logger = console, au
       const filters = [];
       const params = [];
       if (q) {
-        filters.push(`(json_extract(r.content_json, '$.name') LIKE ? ESCAPE '\\'
-          OR json_extract(r.content_json, '$.introduction') LIKE ? ESCAPE '\\'
-          OR json_extract(r.content_json, '$.story') LIKE ? ESCAPE '\\'
-          OR json_extract(r.content_json, '$.carryForward') LIKE ? ESCAPE '\\')`);
-        const escaped = `%${q.replace(/[\\%_]/g, '\\$&')}%`;
-        params.push(escaped, escaped, escaped, escaped);
+        const pattern = `%${q.replace(/[\\%_]/g, '\\$&')}%`;
+        const conditions = [
+          ...SEARCH_TEXT_FIELDS.map((field) => `json_extract(r.content_json, '$.${field}') LIKE ? ESCAPE '\\'`),
+          ...SEARCH_LIST_FIELDS.map(
+            (field) =>
+              `EXISTS (SELECT 1 FROM json_each(r.content_json, '$.${field}') AS item
+                        WHERE item.value LIKE ? ESCAPE '\\')`,
+          ),
+        ];
+        filters.push(`(${conditions.join(' OR ')})`);
+        params.push(...conditions.map(() => pattern));
       }
       if (req.query.fictional === 'true') filters.push(`json_extract(r.content_json, '$.fictional') = 1`);
       if (req.query.fictional === 'false') filters.push(`COALESCE(json_extract(r.content_json, '$.fictional'), 0) = 0`);
@@ -549,6 +834,30 @@ export async function createApp({ config, database, mailer, logger = console, au
     }
   });
 
+  // A family entry may name the profile address of a relative. Only link it
+  // while that profile is published, so readers never follow a link to a
+  // draft, a pending review or a removed profile.
+  async function linkPublishedFamily(profile) {
+    if (!Array.isArray(profile.family)) return profile;
+    const slugs = [...new Set(profile.family.map((item) => item?.slug).filter((slug) => typeof slug === 'string'))];
+    if (!slugs.length) return profile;
+    const rows = await database.all(
+      `SELECT json_extract(r.content_json, '$.slug') AS slug FROM profiles p
+         JOIN profile_revisions r ON r.id = p.approved_revision_id
+        WHERE json_extract(r.content_json, '$.slug') IN (${slugs.map(() => '?').join(', ')})`,
+      slugs,
+    );
+    const published = new Set(rows.map((row) => row.slug));
+    return {
+      ...profile,
+      family: profile.family.map((item) => {
+        if (typeof item?.slug !== 'string' || published.has(item.slug)) return item;
+        const { slug: _unpublished, ...unlinked } = item;
+        return unlinked;
+      }),
+    };
+  }
+
   async function publicProfile(req, res, next, byId) {
     try {
       const row = await database.get(
@@ -559,7 +868,7 @@ export async function createApp({ config, database, mailer, logger = console, au
         [req.params.value],
       );
       if (!row) return jsonError(res, 404, 'Profile not found');
-      res.json(parseContent(row));
+      res.json(await linkPublishedFamily(parseContent(row)));
     } catch (error) {
       next(error);
     }
@@ -585,7 +894,9 @@ export async function createApp({ config, database, mailer, logger = console, au
     'reset.html',
     'dashboard.html',
     'editor.html',
+    'account.html',
     'moderator.html',
+    'audit.html',
   ]) {
     app.get(`/${page}`, pageLimiter, (req, res) => res.sendFile(path.join(root, page)));
   }

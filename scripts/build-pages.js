@@ -14,7 +14,7 @@ import { validateProfilesDirectory } from './validate-profiles.js';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export const STATIC_PAGES = ['index.html', 'profiles.html', 'profile.html', 'contribute.html'];
-const STATIC_SCRIPTS = ['site.js', 'render.js', 'profile-schema.js'];
+const STATIC_SCRIPTS = ['site.js', 'render.js', 'profile-view.js', 'profile-schema.js'];
 const HTML_TAG = '<html lang="en">';
 
 function markStatic(html, page) {
