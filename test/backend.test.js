@@ -79,6 +79,14 @@ function login(agent, email) {
   return mutate(agent, 'post', '/api/auth/login', { email, password });
 }
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 test('production configuration fails closed without secure settings', () => {
   assert.throws(
     () => loadConfig({ NODE_ENV: 'production', APP_BASE_URL: 'https://legacy.example' }),
@@ -397,6 +405,98 @@ test('owners change their password and every other session is signed out', async
   assert.equal(events[0].action, 'account.password_changed');
 });
 
+test('a reset token invalidated during password hashing cannot change the password', async (t) => {
+  const { app, database, sent } = await fixture(t, { recoveryConfigured: true });
+  const owner = supertest.agent(app);
+  await signup(owner, 'owner@example.test').expect(201);
+  await mutate(owner, 'post', '/api/auth/request-reset', { email: 'owner@example.test' }).expect(200);
+
+  const originalGet = database.get.bind(database);
+  const lookedUp = deferred();
+  const release = deferred();
+  let held = false;
+  database.get = async (sql, params) => {
+    const row = await originalGet(sql, params);
+    if (!held && sql.includes('SELECT id, user_id FROM password_reset_tokens')) {
+      held = true;
+      lookedUp.resolve();
+      await release.promise;
+    }
+    return row;
+  };
+
+  const reset = mutate(owner, 'post', '/api/auth/reset-password', {
+    token: sent[0].token,
+    password: 'a concurrent reset password',
+  }).expect(400);
+  try {
+    await lookedUp.promise;
+    await mutate(owner, 'post', '/api/me/password', {
+      currentPassword: password,
+      newPassword: 'a concurrent self-service password',
+    }).expect(200);
+  } finally {
+    release.resolve();
+    database.get = originalGet;
+  }
+  await reset;
+  await mutate(supertest.agent(app), 'post', '/api/auth/login', {
+    email: 'owner@example.test',
+    password: 'a concurrent self-service password',
+  }).expect(200);
+  await mutate(supertest.agent(app), 'post', '/api/auth/login', {
+    email: 'owner@example.test',
+    password: 'a concurrent reset password',
+  }).expect(401);
+});
+
+test('a password change cannot update a replacement account after hashing', async (t) => {
+  const { app, database } = await fixture(t);
+  const owner = supertest.agent(app);
+  const otherDevice = supertest.agent(app);
+  await signup(owner, 'owner@example.test').expect(201);
+  await login(otherDevice, 'owner@example.test').expect(200);
+
+  const originalGet = database.get.bind(database);
+  const lookedUp = deferred();
+  const release = deferred();
+  let held = false;
+  database.get = async (sql, params) => {
+    const row = await originalGet(sql, params);
+    if (!held && sql === 'SELECT id, password_hash FROM users WHERE id = ?') {
+      held = true;
+      lookedUp.resolve();
+      await release.promise;
+    }
+    return row;
+  };
+
+  const change = mutate(owner, 'post', '/api/me/password', {
+    currentPassword: password,
+    newPassword: 'a password for the old account',
+  }).expect(409);
+  try {
+    await lookedUp.promise;
+    await mutate(otherDevice, 'delete', '/api/me', { password, confirm: true }).expect(204);
+    const newcomer = supertest.agent(app);
+    const created = await signup(newcomer, 'newcomer@example.test').expect(201);
+    assert.equal(created.body.id, 1);
+  } finally {
+    release.resolve();
+    database.get = originalGet;
+  }
+  await change;
+
+  await mutate(supertest.agent(app), 'post', '/api/auth/login', {
+    email: 'newcomer@example.test',
+    password,
+  }).expect(200);
+  await mutate(supertest.agent(app), 'post', '/api/auth/login', {
+    email: 'newcomer@example.test',
+    password: 'a password for the old account',
+  }).expect(401);
+});
+
 test('owners can download everything stored about them without moderator identities', async (t) => {
   const { app, database } = await fixture(t);
   const owner = supertest.agent(app);
@@ -449,6 +549,44 @@ test('owners can download everything stored about them without moderator identit
   }
 });
 
+test('an export cannot cross an account replacement after authentication', async (t) => {
+  const { app, database } = await fixture(t);
+  const owner = supertest.agent(app);
+  const otherDevice = supertest.agent(app);
+  await signup(owner, 'owner@example.test').expect(201);
+  await login(otherDevice, 'owner@example.test').expect(200);
+  await createProfile(owner, baseProfile('old-private-profile', 'Old Private')).expect(201);
+
+  const originalTransaction = database.transaction.bind(database);
+  const entered = deferred();
+  const release = deferred();
+  let held = false;
+  database.transaction = async (work) => {
+    if (!held) {
+      held = true;
+      entered.resolve();
+      await release.promise;
+    }
+    return originalTransaction(work);
+  };
+  const exportRequest = owner.get('/api/me/export');
+  const exported = exportRequest.then((response) => response);
+  try {
+    await entered.promise;
+    await mutate(otherDevice, 'delete', '/api/me', { password, confirm: true }).expect(204);
+    const newcomer = supertest.agent(app);
+    await signup(newcomer, 'newcomer@example.test').expect(201);
+    await createProfile(newcomer, baseProfile('new-private-profile', 'New Private')).expect(201);
+  } finally {
+    release.resolve();
+    database.transaction = originalTransaction;
+  }
+
+  const response = await exported;
+  assert.equal(response.status, 401);
+  assert.equal(JSON.stringify(response.body).includes('new-private-profile'), false);
+});
+
 test('owners delete their account, profiles and sessions; moderators cannot self-delete', async (t) => {
   const { app, database } = await fixture(t);
   const owner = supertest.agent(app);
@@ -487,6 +625,64 @@ test('owners delete their account, profiles and sessions; moderators cannot self
   assert.deepEqual(deletion, { actor_user_id: null, profile_id: null, details_json: '{"profilesDeleted":1}' });
   const remaining = await database.all(`SELECT sess FROM sessions`);
   assert.equal(remaining.some((row) => JSON.parse(row.sess).userId === 1), false);
+});
+
+test('a concurrent account deletion cannot delete a replacement account', async (t) => {
+  const { app, database } = await fixture(t);
+  const firstOwner = supertest.agent(app);
+  const secondOwner = supertest.agent(app);
+  await signup(firstOwner, 'owner@example.test').expect(201);
+  await login(secondOwner, 'owner@example.test').expect(200);
+  const firstToken = await csrf(firstOwner);
+  const secondToken = await csrf(secondOwner);
+
+  const originalTransaction = database.transaction.bind(database);
+  const entered = deferred();
+  const releases = [];
+  let held = 0;
+  database.transaction = async (work) => {
+    if (held < 2) {
+      const release = deferred();
+      releases.push(release);
+      held += 1;
+      if (held === 2) entered.resolve();
+      await release.promise;
+    }
+    return originalTransaction(work);
+  };
+  const first = firstOwner
+    .delete('/api/me')
+    .set('x-csrf-token', firstToken)
+    .send({ password, confirm: true })
+    .then((response) => response);
+  const second = secondOwner
+    .delete('/api/me')
+    .set('x-csrf-token', secondToken)
+    .send({ password, confirm: true })
+    .then((response) => response);
+  try {
+    await entered.promise;
+    releases[0].resolve();
+    const firstResult = await Promise.race(
+      [first, second].map((request, index) => request.then((response) => ({ index, response }))),
+    );
+    assert.equal(firstResult.response.status, 204);
+    const newcomer = supertest.agent(app);
+    const created = await signup(newcomer, 'newcomer@example.test').expect(201);
+    assert.equal(created.body.id, 1);
+  } finally {
+    for (const release of releases) release.resolve();
+    database.transaction = originalTransaction;
+  }
+
+  assert.deepEqual(
+    (await Promise.all([first, second])).map((response) => response.status).sort(),
+    [204, 409],
+  );
+  await mutate(supertest.agent(app), 'post', '/api/auth/login', {
+    email: 'newcomer@example.test',
+    password,
+  }).expect(200);
 });
 
 test('a session written back after its account is deleted never signs in the next account', async (t) => {

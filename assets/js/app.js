@@ -173,7 +173,7 @@ function profileFromForm(form, preserved = {}) {
   // Required parts are always sent, even when empty, so validation reports
   // them instead of an incomplete entry being saved.
   const work = entryValues(form, 'work').map(({ title, description, url }) => ({
-    title,
+    ...(title ? { title } : {}),
     ...withoutBlanks({ description, url }),
   }));
   if (work.length) profile.work = work;

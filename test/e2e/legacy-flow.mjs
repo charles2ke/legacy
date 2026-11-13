@@ -71,6 +71,8 @@ try {
   await owner.getByRole('button', { name: 'Add a work item' }).click();
   await owner.keyboard.type('Tide tables');
   await group('Work item 2').getByLabel('Link (optional; http, https or mailto)').fill('https://example.com/tides');
+  await owner.getByRole('button', { name: 'Add a work item' }).click();
+  await group('Work item 3').getByLabel('Description (optional)').fill('A work entry without a title.');
   assert.equal(await group('Work item 1').getByLabel('Title').inputValue(), 'River guide');
   const links = [
     ['Example link', 'https://example.com'],
@@ -103,6 +105,8 @@ try {
   await owner.getByRole('alert').filter({ hasText: 'Private draft saved.' }).waitFor();
   assert.match(owner.url(), /\/editor\.html\?id=\d+$/);
   assert.equal(await statusText(), 'Private draft. It has not been submitted for review.');
+  const saved = await owner.evaluate(async () => (await fetch('/api/me/profiles')).json());
+  assert.deepEqual(saved.profiles[0].draft.work[2], { description: 'A work entry without a title.' });
 
   // Submitting with unsaved changes saves them first.
   await owner.getByLabel('Short introduction').fill('A profile created and submitted by the browser test.');

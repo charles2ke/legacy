@@ -263,11 +263,27 @@ export async function createApp({ config, database, mailer, logger = console, au
       );
       if (!reset) return jsonError(res, 400, 'Reset link is invalid or expired');
       const passwordHash = await argon2.hash(req.body.password, { type: argon2.argon2id });
-      await database.transaction(async (transaction) => {
-        await transaction.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, reset.user_id]);
-        await transaction.run('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?', [reset.id]);
+      const updated = await database.transaction(async (transaction) => {
+        const now = new Date().toISOString();
+        const currentReset = await transaction.get(
+          `SELECT user_id FROM password_reset_tokens
+            WHERE id = ? AND token_hash = ? AND used_at IS NULL AND expires_at > ?`,
+          [reset.id, tokenHash, now],
+        );
+        if (!currentReset || currentReset.user_id !== reset.user_id) return false;
+        const account = await transaction.get('SELECT id FROM users WHERE id = ?', [currentReset.user_id]);
+        if (!account) return false;
+        const consumed = await transaction.run(
+          `UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND token_hash = ? AND used_at IS NULL AND expires_at > ?`,
+          [reset.id, tokenHash, now],
+        );
+        if (consumed.changes !== 1) return false;
+        await transaction.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, account.id]);
         await transaction.run(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`, [reset.user_id]);
+        return true;
       });
+      if (!updated) return jsonError(res, 400, 'Reset link is invalid or expired');
       res.json({ message: 'Password updated. Sign in with the new password.' });
     } catch (error) {
       next(error);
@@ -302,8 +318,20 @@ export async function createApp({ config, database, mailer, logger = console, au
         return jsonError(res, 403, 'Current password is incorrect');
       }
       const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
-      await database.transaction(async (transaction) => {
-        await transaction.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id]);
+      const updated = await database.transaction(async (transaction) => {
+        const current = await transaction.get('SELECT id, password_hash FROM users WHERE id = ?', [user.id]);
+        if (
+          !current ||
+          current.password_hash !== user.password_hash ||
+          req.session.authHash !== sessionAuthHash(config.sessionSecret, current.password_hash)
+        ) {
+          return false;
+        }
+        const changed = await transaction.run(
+          'UPDATE users SET password_hash = ? WHERE id = ? AND password_hash = ?',
+          [passwordHash, user.id, user.password_hash],
+        );
+        if (changed.changes !== 1) return false;
         await transaction.run(
           'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND used_at IS NULL',
           [user.id],
@@ -311,7 +339,9 @@ export async function createApp({ config, database, mailer, logger = console, au
         // Sign out every session, including this one; a fresh session is issued below.
         await transaction.run(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`, [user.id]);
         await audit(transaction, user.id, null, 'account.password_changed');
+        return true;
       });
+      if (!updated) return jsonError(res, 409, 'Account changed; sign in again before changing your password');
       await startSession(req, config.sessionSecret, user.id, passwordHash);
       res.json({ message: 'Password changed. Any other signed-in sessions have been signed out.' });
     } catch (error) {
@@ -332,28 +362,36 @@ export async function createApp({ config, database, mailer, logger = console, au
   app.get('/api/me/export', requireUser, exportLimiter, async (req, res, next) => {
     try {
       const userId = req.session.userId;
-      const user = await database.get('SELECT email, role, created_at FROM users WHERE id = ?', [userId]);
-      if (!user) return jsonError(res, 401, 'Authentication required');
-      const profiles = await database.all(
-        `SELECT id, slug, status, consented_at, created_at, updated_at, draft_revision_id, approved_revision_id
-           FROM profiles WHERE owner_user_id = ? ORDER BY id`,
-        [userId],
-      );
-      const revisions = await database.all(
-        `SELECT r.id, r.profile_id, r.content_json, r.created_at FROM profile_revisions r
-           JOIN profiles p ON p.id = r.profile_id WHERE p.owner_user_id = ? ORDER BY r.id`,
-        [userId],
-      );
-      const decisions = await database.all(
-        `SELECT m.profile_id, m.revision_id, m.decision, m.feedback, m.created_at FROM moderation_decisions m
-           JOIN profiles p ON p.id = m.profile_id WHERE p.owner_user_id = ? ORDER BY m.id`,
-        [userId],
-      );
-      const activity = await database.all(
-        `SELECT action, profile_id, details_json, created_at FROM audit_log
-          WHERE actor_user_id = ? ORDER BY id`,
-        [userId],
-      );
+      const exportedData = await database.transaction(async (transaction) => {
+        const user = await transaction.get(
+          'SELECT id, email, role, password_hash, created_at FROM users WHERE id = ?',
+          [userId],
+        );
+        if (!user || req.session.authHash !== sessionAuthHash(config.sessionSecret, user.password_hash)) return null;
+        const profiles = await transaction.all(
+          `SELECT id, slug, status, consented_at, created_at, updated_at, draft_revision_id, approved_revision_id
+             FROM profiles WHERE owner_user_id = ? ORDER BY id`,
+          [userId],
+        );
+        const revisions = await transaction.all(
+          `SELECT r.id, r.profile_id, r.content_json, r.created_at FROM profile_revisions r
+             JOIN profiles p ON p.id = r.profile_id WHERE p.owner_user_id = ? ORDER BY r.id`,
+          [userId],
+        );
+        const decisions = await transaction.all(
+          `SELECT m.profile_id, m.revision_id, m.decision, m.feedback, m.created_at FROM moderation_decisions m
+             JOIN profiles p ON p.id = m.profile_id WHERE p.owner_user_id = ? ORDER BY m.id`,
+          [userId],
+        );
+        const activity = await transaction.all(
+          `SELECT action, profile_id, details_json, created_at FROM audit_log
+            WHERE actor_user_id = ? ORDER BY id`,
+          [userId],
+        );
+        return { user, profiles, revisions, decisions, activity };
+      });
+      if (!exportedData) return jsonError(res, 401, 'Authentication required');
+      const { user, profiles, revisions, decisions, activity } = exportedData;
       const contentById = new Map(revisions.map((row) => [row.id, parseContent(row)]));
       const exportedAt = new Date().toISOString();
       const payload = {
@@ -410,15 +448,30 @@ export async function createApp({ config, database, mailer, logger = console, au
       if (typeof password !== 'string' || !password || !(await argon2.verify(user.password_hash, password))) {
         return jsonError(res, 403, 'Password is incorrect');
       }
-      await database.transaction(async (transaction) => {
+      const deleted = await database.transaction(async (transaction) => {
+        const current = await transaction.get('SELECT id, role, password_hash FROM users WHERE id = ?', [user.id]);
+        if (
+          !current ||
+          current.password_hash !== user.password_hash ||
+          current.role !== user.role ||
+          current.role === 'moderator' ||
+          req.session.authHash !== sessionAuthHash(config.sessionSecret, current.password_hash)
+        ) {
+          return false;
+        }
         const { total } = await transaction.get('SELECT COUNT(*) AS total FROM profiles WHERE owner_user_id = ?', [
           user.id,
         ]);
+        const removed = await transaction.run(
+          'DELETE FROM users WHERE id = ? AND password_hash = ? AND role = ?',
+          [user.id, user.password_hash, user.role],
+        );
+        if (removed.changes !== 1) return false;
         await transaction.run(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`, [user.id]);
-        // Profiles, revisions, decisions and their audit rows cascade with the user.
-        await transaction.run('DELETE FROM users WHERE id = ?', [user.id]);
         await audit(transaction, null, null, 'account.deleted', { profilesDeleted: total });
+        return true;
       });
+      if (!deleted) return jsonError(res, 409, 'Account changed; sign in again before deleting it');
       await sessionDestroy(req);
       res.clearCookie('legacy.sid');
       res.status(204).end();
