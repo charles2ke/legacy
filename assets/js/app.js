@@ -425,9 +425,21 @@ async function initEditor(form) {
       message(errorText(error), true);
     }
   });
+  const previewContainer = document.querySelector('[data-profile-preview]');
+  let previewSnapshot = null;
   document.querySelector('[data-preview]').addEventListener('click', () => {
-    renderPreview(document.querySelector('[data-profile-preview]'), profileFromForm(form, preserved));
+    previewSnapshot = snapshot();
+    renderPreview(previewContainer, profileFromForm(form, preserved));
   });
+  // An outdated preview would still claim to show what readers will see.
+  const invalidatePreview = () => {
+    if (previewSnapshot === null || snapshot() === previewSnapshot) return;
+    previewSnapshot = null;
+    previewContainer.replaceChildren(
+      el('p', 'You have changed the profile since this preview. Use “Preview profile” to see it again.', 'note'),
+    );
+  };
+  for (const type of ['input', 'change', 'click']) form.addEventListener(type, invalidatePreview);
   submitSection.querySelector('button').addEventListener('click', async () => {
     if (!consent.checked) {
       message('Tick the consent box before submitting this profile for review.', true);

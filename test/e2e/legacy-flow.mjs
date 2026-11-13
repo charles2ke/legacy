@@ -106,6 +106,9 @@ try {
 
   // Submitting with unsaved changes saves them first.
   await owner.getByLabel('Short introduction').fill('A profile created and submitted by the browser test.');
+  // An edit after previewing must not leave the old preview looking current.
+  await preview.getByText(/^You have changed the profile since this preview\./).waitFor();
+  assert.equal(await preview.getByRole('heading', { name: 'Browser River' }).count(), 0);
   await owner.getByLabel(/I explicitly consent/).check();
   await act(
     owner,

@@ -12,7 +12,8 @@ material.
 
 - **Guided editor.** Owners can add as many work items, links and family
   members as the schema allows (20, 10 and 20). They can preview the profile as
-  readers will see it, with any validation problems listed. A status panel
+  readers will see it, with any validation problems listed. Editing after a
+  preview clears it and asks them to preview again. A status panel
   shows whether it is a private draft, waiting for review, published, or sent
   back with feedback. Submitting saves unsaved changes first. Fields the editor
   does not show, such as `visibility`, are kept unchanged.
@@ -113,7 +114,8 @@ Node.js 24) with:
   smoke test passed; the imported profile remained unowned and unpublished.
 - `npm run test:e2e` passed in Chromium three times in a row, each on a new
   database. It covers:
-  - editing with repeatable entries, then previewing and submitting;
+  - editing with repeatable entries, then previewing (including the preview
+    clearing after a later edit) and submitting;
   - a decision refused because the owner changed the profile meanwhile, then
     approval;
   - directory search and the public profile;
