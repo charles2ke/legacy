@@ -55,9 +55,11 @@ Create the first moderator through a trusted shell as documented in the README.
 Never expose moderator bootstrap variables to client code or CI logs.
 
 If HTTPS terminates at exactly one trusted proxy, set `TRUST_PROXY=1`; otherwise
-leave it off. Use one application instance with SQLite unless the chosen
-platform provides a carefully tested shared-database design. Run migrations
-before starting new code and back up before upgrades.
+leave it off. Rate limits are counted per client IP address, so behind a proxy
+without this setting every visitor shares one limit. Use one application
+instance with SQLite unless the chosen platform provides a carefully tested
+shared-database design. Run migrations before starting new code and back up
+before upgrades.
 
 ## Email
 

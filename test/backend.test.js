@@ -17,7 +17,7 @@ const baseProfile = (slug = 'river-song', name = 'River Song') => ({
   carryForward: 'Keep helping.',
 });
 
-async function fixture(t, { recoveryConfigured = false } = {}) {
+async function fixture(t, { recoveryConfigured = false, apiLimit = 10_000 } = {}) {
   const database = await openDatabase(':memory:');
   t.after(() => database.close());
   const sent = [];
@@ -38,6 +38,7 @@ async function fixture(t, { recoveryConfigured = false } = {}) {
     mailer,
     logger: { error() {}, info() {} },
     authLimit: 1000,
+    apiLimit,
   });
   return { app, database, sent };
 }
@@ -155,6 +156,38 @@ test('auth uses sessions, CSRF protection, private emails and server-controlled 
 
   await mutate(agent, 'post', '/api/auth/logout').expect(204);
   await agent.get('/api/me').expect(401);
+});
+
+test('every state-changing API route refuses a signed-in request without a CSRF token', async (t) => {
+  const { app } = await fixture(t);
+  const agent = supertest.agent(app);
+  await signup(agent, 'owner@example.test').expect(201);
+
+  const routes = app.router.stack
+    .filter((layer) => layer.route)
+    .flatMap((layer) => Object.keys(layer.route.methods).map((method) => [method, layer.route.path]))
+    .filter(([method]) => !['get', 'head', 'options'].includes(method));
+  const names = routes.map(([method, route]) => `${method} ${route}`);
+  for (const expected of ['delete /api/me', 'post /api/me/password', 'post /api/moderation/profiles/:id/decision']) {
+    assert.ok(names.includes(expected), expected);
+  }
+
+  for (const [method, route] of routes) {
+    const response = await agent[method](route.replaceAll(/:\w+/g, '1')).send({});
+    assert.equal(response.status, 403, `${method} ${route}`);
+    assert.equal(response.body.error, 'Invalid CSRF token', `${method} ${route}`);
+  }
+  await agent.get('/api/me').expect(200);
+});
+
+test('API requests are rate limited before authentication, separately from pages', async (t) => {
+  const { app } = await fixture(t, { apiLimit: 2 });
+  const client = supertest(app);
+  await client.get('/api/me').expect(401);
+  await client.get('/api/me').expect(401);
+  const limited = await client.get('/api/me').expect(429);
+  assert.equal(limited.body.error, 'Too many requests; try again later');
+  await client.get('/').expect(200);
 });
 
 test('owners cannot read, edit or delete another owner’s profile', async (t) => {
